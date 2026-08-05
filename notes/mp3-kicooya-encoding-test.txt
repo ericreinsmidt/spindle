@@ -1,0 +1,23 @@
+[839213491] === Kicooya-encoding wait-between-seeks test: gaps 1/5/15s, 5 seeks each ===
+[839213491] --- trial 1: gap 1.0s | music/love-kicooya.mp3 | length 258.90
+[839213494] trial 1 seek 1 | resting 3.03/258.90 | asked 13.03 | now 12.83/258.90 | cum +10
+[839213495] trial 1 seek 2 | resting 0.47/13.03 | asked 10.47 | now 10.24/13.03 | cum +20
+[839213497] trial 1 seek 3 | resting 6.57/8.41 | asked 16.57 | now 6.58/8.41 | cum +30
+[839213498] trial 1 seek 4 | resting 2.67/3.58 | asked 12.67 | now 2.67/3.58 | cum +40
+[839213499] trial 1 seek 5 | resting 0.55/0.68 | asked 10.55 | now 0.68/0.68 | cum +50
+[839213500] trial 1 RESULT: gap 1.0s | final 0.68/0.68 (loaded at 258.90) | STOPPED
+[839213500] --- trial 2: gap 5.0s | music/love-kicooya.mp3 | length 258.90
+[839213503] trial 2 seek 1 | resting 3.02/258.90 | asked 13.02 | now 12.81/258.90 | cum +10
+[839213508] trial 2 seek 2 | resting 0.67/13.01 | asked 10.67 | now 10.45/13.01 | cum +20
+[839213513] trial 2 seek 3 | resting 7.15/8.76 | asked 17.15 | now 7.16/8.76 | cum +30
+[839213518] trial 2 seek 4 | resting 5.09/6.18 | asked 15.09 | now 5.09/6.18 | cum +40
+[839213523] trial 2 seek 5 | resting 3.26/3.93 | asked 13.26 | now 3.27/3.93 | cum +50
+[839213528] trial 2 RESULT: gap 5.0s | final 2.19/2.68 (loaded at 258.90) | playing
+[839213528] --- trial 3: gap 15.0s | music/love-kicooya.mp3 | length 258.90
+[839213531] trial 3 seek 1 | resting 3.00/258.90 | asked 13.00 | now 12.79/258.90 | cum +10
+[839213546] trial 3 seek 2 | resting 0.65/13.00 | asked 10.65 | now 10.65/13.00 | cum +20
+[839213561] trial 3 seek 3 | resting 10.65/13.00 | asked 20.65 | now 10.65/13.00 | cum +30
+[839213576] trial 3 seek 4 | resting 10.65/13.00 | asked 20.65 | now 10.65/13.00 | cum +40
+[839213591] trial 3 seek 5 | resting 10.65/13.00 | asked 20.65 | now 10.65/13.00 | cum +50
+[839213606] trial 3 RESULT: gap 15.0s | final 10.65/13.00 (loaded at 258.90) | playing
+[839213606] === all trials complete ===

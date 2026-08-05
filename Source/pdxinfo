@@ -1,0 +1,7 @@
+name=Spindle
+author=
+description=An album-first music player
+bundleID=com.reinsmidt.spindle
+version=0.1
+buildNumber=1
+imagePath=launcher

@@ -1,0 +1,36 @@
+[839211750] === format probe: 4 candidates ===
+[839211750] --- mp3 (control) : music/01 Love Song.mp3 | exists=true size=10389834
+[839211750] mp3 (control): length 258.90, isPlaying true
+[839211754] mp3 (control)  PLAYS  length 258.90  offset after 4s 4.04  playing
+[839211754] --- adpcm .wav : music/love-adpcm.wav | exists=true size=11493604
+[839211754] adpcm .wav: length -1.00, isPlaying false
+[839211758] adpcm .wav     SILENT  length -1.00  offset after 4s 0.00  stopped
+[839211758] --- adpcm no ext : music/love-adpcm | exists=false size=-1
+[839211758] adpcm no ext: length 258.57, isPlaying true
+[839211762] adpcm no ext   PLAYS  length 258.57  offset after 4s 4.03  playing
+[839211762] --- adpcm .pda : music/love-adpcm.pda | exists=true size=11481552
+[839211762] adpcm .pda: length 258.57, isPlaying true
+[839211766] adpcm .pda     PLAYS  length 258.57  offset after 4s 4.00  playing
+[839211766] === summary ===
+[839211766]   mp3 (control)  PLAYS  length 258.90  offset after 4s 4.04  playing
+[839211766]   adpcm .wav     SILENT  length -1.00  offset after 4s 0.00  stopped
+[839211766]   adpcm no ext   PLAYS  length 258.57  offset after 4s 4.03  playing
+[839211766]   adpcm .pda     PLAYS  length 258.57  offset after 4s 4.00  playing
+[839211806] === format probe: 4 candidates ===
+[839211807] --- mp3 (control) : music/01 Love Song.mp3 | exists=true size=10389834
+[839211807] mp3 (control): length 258.90, isPlaying true
+[839211811] mp3 (control)  PLAYS  length 258.90  offset after 4s 4.03  playing
+[839211811] --- adpcm .wav : music/love-adpcm.wav | exists=true size=11493604
+[839211811] adpcm .wav: length -1.00, isPlaying false
+[839211815] adpcm .wav     SILENT  length -1.00  offset after 4s 0.00  stopped
+[839211815] --- adpcm no ext : music/love-adpcm | exists=false size=-1
+[839211815] adpcm no ext: length 258.57, isPlaying true
+[839211819] adpcm no ext   PLAYS  length 258.57  offset after 4s 4.03  playing
+[839211819] --- adpcm .pda : music/love-adpcm.pda | exists=true size=11481552
+[839211819] adpcm .pda: length 258.57, isPlaying true
+[839211823] adpcm .pda     PLAYS  length 258.57  offset after 4s 4.03  playing
+[839211823] === summary ===
+[839211823]   mp3 (control)  PLAYS  length 258.90  offset after 4s 4.03  playing
+[839211823]   adpcm .wav     SILENT  length -1.00  offset after 4s 0.00  stopped
+[839211823]   adpcm no ext   PLAYS  length 258.57  offset after 4s 4.03  playing
+[839211823]   adpcm .pda     PLAYS  length 258.57  offset after 4s 4.03  playing

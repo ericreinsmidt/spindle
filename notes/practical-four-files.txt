@@ -1,0 +1,34 @@
+[839220980] === practical seek comparison ===
+[839220981] --- Starling 320k | length 410.04 | 8 seeks of +10
+[839220985] Starling 320k seek 1 | +10 to 14.0 | cost 5ms
+[839220987] Starling 320k seek 2 | +10 to 26.0 | cost 3ms
+[839220989] Starling 320k seek 3 | -10 to 18.1 | cost 4ms
+[839220991] Starling 320k seek 4 | +10 to 30.1 | cost 3ms
+[839220993] Starling 320k seek 5 | +10 to 42.1 | cost 6ms
+[839220995] Starling 320k seek 6 | -10 to 34.1 | cost 3ms
+[839220997] Starling 320k seek 7 | +10 to 46.2 | cost 26ms
+[839220999] Starling 320k seek 8 | +10 to 58.2 | cost 15ms
+[839220999] RESULT Starling 320k avg 8ms  worst 26ms  underruns 0
+[839220999] --- LoveSong 320k | length 258.90 | 8 seeks of +10
+[839221003] LoveSong 320k seek 1 | +10 to 14.0 | cost 3ms
+[839221005] LoveSong 320k seek 2 | +10 to 26.0 | cost 10ms
+[839221007] LoveSong 320k seek 3 | -10 to 18.1 | cost 15ms
+[839221011] LoveSong 320k seek 4 | +10 to 30.1 | cost 2329ms  <-- STALL
+[839221017] LoveSong 320k seek 5 | +10 to 42.1 | cost 3161ms  <-- STALL
+[839221021] LoveSong 320k seek 6 | -10 to 34.1 | cost 2557ms  <-- STALL
+[839221027] LoveSong 320k seek 7 | +10 to 46.1 | cost 3460ms  <-- STALL
+[839221033] LoveSong 320k seek 8 | +10 to 58.2 | cost 4361ms  <-- STALL
+[839221033] RESULT LoveSong 320k avg 1987ms  worst 4361ms  underruns 0
+[839221033] --- LoveSong 128k | length 258.90 | 8 seeks of +10
+[839221037] LoveSong 128k seek 1 | +10 to 14.0 | cost 5ms
+[839221039] LoveSong 128k seek 2 | +10 to 26.0 | cost 6ms
+[839221041] LoveSong 128k seek 3 | -10 to 18.1 | cost 4ms
+[839221043] LoveSong 128k seek 4 | +10 to 30.1 | cost 4ms
+[839221045] LoveSong 128k seek 5 | +10 to 42.1 | cost 3ms
+[839221047] LoveSong 128k seek 6 | -10 to 34.1 | cost 4ms
+[839221049] LoveSong 128k seek 7 | +10 to 46.1 | cost 4ms
+[839221051] LoveSong 128k seek 8 | +10 to 58.1 | cost 4ms
+[839221051] RESULT LoveSong 128k avg 4ms  worst 6ms  underruns 1
+[839221051] --- Mexican 320k | length 204.43 | 8 seeks of +10
+[839221055] Mexican 320k seek 1 | +10 to 14.1 | cost 5ms
+[839221057] Mexican 320k seek 2 | +10 to 26.1 | cost 14ms

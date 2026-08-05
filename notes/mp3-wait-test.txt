@@ -1,0 +1,23 @@
+[839206836] === wait-between-seeks test: gaps 1/5/15s, 5 seeks each ===
+[839206836] --- trial 1: gap 1.0s | music/01 Love Song.mp3 | length 258.90
+[839206839] trial 1 seek 1 | resting 3.01/258.90 | asked 13.01 | now 12.78/258.90 | cum +10
+[839206840] trial 1 seek 2 | resting 0.51/13.01 | asked 10.51 | now 10.32/13.01 | cum +20
+[839206841] trial 1 seek 3 | resting 8.33/10.51 | asked 18.33 | now 8.33/10.51 | cum +30
+[839206842] trial 1 seek 4 | resting 6.73/8.53 | asked 16.73 | now 6.77/8.53 | cum +40
+[839206843] trial 1 seek 5 | resting 5.48/6.96 | asked 15.48 | now 5.56/6.96 | cum +50
+[839206844] trial 1 RESULT: gap 1.0s | final 4.50/5.71 (loaded at 258.90) | playing
+[839206844] --- trial 2: gap 5.0s | music/01 Love Song.mp3 | length 258.90
+[839206847] trial 2 seek 1 | resting 3.01/258.90 | asked 13.01 | now 12.81/258.90 | cum +10
+[839206852] trial 2 seek 2 | resting 0.68/13.01 | asked 10.68 | now 10.47/13.01 | cum +20
+[839206857] trial 2 seek 3 | resting 8.77/10.68 | asked 18.77 | now 8.78/10.68 | cum +30
+[839206862] trial 2 seek 4 | resting 7.50/8.97 | asked 17.50 | now 7.52/8.97 | cum +40
+[839206868] trial 2 seek 5 | resting 6.55/7.71 | asked 16.55 | now 6.64/7.71 | cum +50
+[839206873] trial 2 RESULT: gap 5.0s | final 5.87/6.78 (loaded at 258.90) | playing
+[839206873] --- trial 3: gap 15.0s | music/01 Love Song.mp3 | length 258.90
+[839206876] trial 3 seek 1 | resting 3.03/258.90 | asked 13.03 | now 12.81/258.90 | cum +10
+[839206891] trial 3 seek 2 | resting 1.17/13.01 | asked 11.17 | now 10.95/13.01 | cum +20
+[839206906] trial 3 seek 3 | resting 10.01/11.17 | asked 20.01 | now 10.06/11.17 | cum +30
+[839206921] trial 3 seek 4 | resting 9.76/10.25 | asked 19.76 | now 9.77/10.25 | cum +40
+[839206936] trial 3 seek 5 | resting 9.99/9.99 | asked 19.99 | now 9.99/9.99 | cum +50
+[839206951] trial 3 RESULT: gap 15.0s | final 9.99/9.99 (loaded at 258.90) | STOPPED
+[839206951] === all trials complete ===

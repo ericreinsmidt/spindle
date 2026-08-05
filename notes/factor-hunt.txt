@@ -1,0 +1,26 @@
+[839220241] === factor hunt: 8 cases, settle 3.0s ===
+[839220241] --- music/love-kicooya.mp3 target 30 | load length 258.90 | landed 29.77
+[839220244] RESULT love-kicooya.m t=30: len 258.90->30.00 (x8.630)  pos 33.00->3.48 (x9.485)
+[839220244] --- music/love-kicooya.mp3 target 90 | load length 258.90 | landed 89.77
+[839220247] RESULT love-kicooya.m t=90: len 258.90->31.30 (x8.273)  pos 93.00->11.02 (x8.436)
+[839220247] --- music/01 Love Song.mp3 target 30 | load length 258.90 | landed 29.76
+[839220250] RESULT 01 Love Song.m t=30: len 258.90->29.99 (x8.633)  pos 33.00->3.63 (x9.098)
+[839220250] --- music/01 Love Song.mp3 target 90 | load length 258.90 | landed 89.76
+[839220253] RESULT 01 Love Song.m t=90: len 258.90->89.99 (x2.877)  pos 93.00->32.11 (x2.896)
+[839220254] --- music/01 Mexican Wine.mp3 target 30 | load length 204.43 | landed 29.76
+[839220257] RESULT 01 Mexican Win t=30: len 204.43->204.43 (x1.000)  pos 33.00->0.00 (x-1.000)
+[839220257] --- music/01 Mexican Wine.mp3 target 90 | load length 204.43 | landed 89.77
+[839220260] RESULT 01 Mexican Win t=90: len 204.43->0.00 (x-1.000)  pos 93.00->0.00 (x-1.000)
+[839220260] --- music/06 Starling.mp3 target 30 | load length 410.04 | landed 29.77
+[839220263] RESULT 06 Starling.mp t=30: len 410.04->410.04 (x1.000)  pos 33.00->32.81 (x1.006)
+[839220263] --- music/06 Starling.mp3 target 90 | load length 410.04 | landed 89.76
+[839220266] RESULT 06 Starling.mp t=90: len 410.04->410.04 (x1.000)  pos 93.00->92.79 (x1.002)
+[839220266] === summary: factor = true / reported ===
+[839220266]   love-kicooya.m t=30: len 258.90->30.00 (x8.630)  pos 33.00->3.48 (x9.485)
+[839220266]   love-kicooya.m t=90: len 258.90->31.30 (x8.273)  pos 93.00->11.02 (x8.436)
+[839220266]   01 Love Song.m t=30: len 258.90->29.99 (x8.633)  pos 33.00->3.63 (x9.098)
+[839220266]   01 Love Song.m t=90: len 258.90->89.99 (x2.877)  pos 93.00->32.11 (x2.896)
+[839220266]   01 Mexican Win t=30: len 204.43->204.43 (x1.000)  pos 33.00->0.00 (x-1.000)
+[839220266]   01 Mexican Win t=90: len 204.43->0.00 (x-1.000)  pos 93.00->0.00 (x-1.000)
+[839220266]   06 Starling.mp t=30: len 410.04->410.04 (x1.000)  pos 33.00->32.81 (x1.006)
+[839220266]   06 Starling.mp t=90: len 410.04->410.04 (x1.000)  pos 93.00->92.79 (x1.002)

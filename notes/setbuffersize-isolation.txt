@@ -1,0 +1,26 @@
+[839219075] === does setBufferSize break setOffset? | target 100.0 ===
+[839219075] --- 1: no setBufferSize | asked 100.0 | landed 99.77 | len 258.90
+[839219076]   1: no setBufferSize  t+1s: offset 14.87 len 38.63 playing
+[839219077]   1: no setBufferSize  t+2s: offset 15.00 len 38.63 playing
+[839219078]   1: no setBufferSize  t+3s: offset 15.17 len 38.63 playing
+[839219079]   1: no setBufferSize  t+4s: offset 15.32 len 38.63 playing
+[839219080]   1: no setBufferSize  t+5s: offset 15.48 len 38.63 playing
+[839219080] RESULT 1: no setBufferSize -> LOST (landed 99.77, now 15.48, expected ~105.00)
+[839219080] --- 2: setBufferSize(0.5) | asked 100.0 | landed 99.51 | len 258.90
+[839219081]   2: setBufferSize(0.5)  t+1s: offset 14.62 len 38.63 playing
+[839219082]   2: setBufferSize(0.5)  t+2s: offset 14.75 len 38.63 playing
+[839219083]   2: setBufferSize(0.5)  t+3s: offset 14.90 len 38.63 playing
+[839219084]   2: setBufferSize(0.5)  t+4s: offset 15.06 len 38.63 playing
+[839219085]   2: setBufferSize(0.5)  t+5s: offset 15.19 len 38.63 playing
+[839219085] RESULT 2: setBufferSize(0.5) -> LOST (landed 99.51, now 15.20, expected ~105.00)
+[839219086] --- 3: setBufferSize(2.0) | asked 100.0 | landed 98.01 | len 258.90
+[839219087]   3: setBufferSize(2.0)  t+1s: offset 13.12 len 38.63 playing
+[839219088]   3: setBufferSize(2.0)  t+2s: offset 13.25 len 38.63 playing
+[839219089]   3: setBufferSize(2.0)  t+3s: offset 13.42 len 38.63 playing
+[839219090]   3: setBufferSize(2.0)  t+4s: offset 13.58 len 38.63 playing
+[839219091]   3: setBufferSize(2.0)  t+5s: offset 13.71 len 38.63 playing
+[839219091] RESULT 3: setBufferSize(2.0) -> LOST (landed 98.01, now 13.73, expected ~105.00)
+[839219091] === summary ===
+[839219091]   1: no setBufferSize -> LOST (landed 99.77, now 15.48, expected ~105.00)
+[839219091]   2: setBufferSize(0.5) -> LOST (landed 99.51, now 15.20, expected ~105.00)
+[839219091]   3: setBufferSize(2.0) -> LOST (landed 98.01, now 13.73, expected ~105.00)

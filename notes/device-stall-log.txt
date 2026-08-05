@@ -1,0 +1,41 @@
+[839187747] refresh rate -> 50Hz (battery 99.7%)
+[839187747] === spike session start, battery 99.7% ===
+[839187748] discovered 38 track(s)
+[839187748] loaded music/Check Your Head/01 Jimmy James.mp3, length 194.94s
+[839187785] loaded music/Check Your Head/02 Funky Boss.mp3, length 96.01s
+[839187787] loaded music/Check Your Head/03 Pass The Mic.mp3, length 257.13s
+[839187788] loaded music/Check Your Head/04 Gratitude.mp3, length 165.81s
+[839187793] loaded music/Check Your Head/05 Lighten Up.mp3, length 161.68s
+[839187796] UNDERRUN #1 at 0 iters/frame, 7ms/frame
+[839187798] loaded music/Check Your Head/06 Finger Lickin' Good.mp3, length 220.07s
+[839187801] loaded music/Check Your Head/07 So What'cha Want.mp3, length 217.22s
+[839187803] loaded music/Check Your Head/08 The Biz Vs. The Nuge.mp3, length 33.73s
+[839187806] loaded music/Check Your Head/09 Time For Livin'.mp3, length 108.86s
+[839187807] battery 99.3% after 60s (-0.4%) at 50Hz, playing
+[839187807] loaded music/Check Your Head/10 Something's Got To Give.mp3, length 208.21s
+[839187808] loaded music/Check Your Head/11 The Blue Nun.mp3, length 32.35s
+[839187809] loaded music/Check Your Head/12 Stand Together.mp3, length 167.53s
+[839187810] loaded music/Check Your Head/13 Pow.mp3, length 134.07s
+[839187812] loaded music/Check Your Head/14 The Maestro.mp3, length 172.34s
+[839187813] loaded music/Check Your Head/15 Groove Holmes.mp3, length 153.48s
+[839187814] loaded music/Check Your Head/16 Live at P.J.'s.mp3, length 198.28s
+[839187816] loaded music/Check Your Head/17 Mark On The Bus.mp3, length 65.68s
+[839187820] loaded music/Check Your Head/18 Professor Booty.mp3, length 253.48s
+[839187821] loaded music/Check Your Head/19 In 3'S.mp3, length 143.34s
+[839187823] loaded music/Check Your Head/20 Namasté.mp3, length 241.28s
+[839187823] loaded music/Ill Communication/01 Sure Shot.mp3, length 199.71s
+[839187825] loaded music/Ill Communication/02 Tough Guy.mp3, length 57.70s
+[839187826] loaded music/Ill Communication/03 B-Boys Makin' With The Freak Freak.mp3, length 216.84s
+[839187827] loaded music/Ill Communication/05 Root Down.mp3, length 212.11s
+[839187828] loaded music/Ill Communication/06 Sabotage.mp3, length 178.47s
+[839187829] UNDERRUN #2 at 0 iters/frame, 7ms/frame
+[839187829] loaded music/Ill Communication/08 Sabrosa.mp3, length 209.55s
+[839187832] loaded music/Ill Communication/09 The Update.mp3, length 195.53s
+[839187834] loaded music/Ill Communication/11 Alright Hear This.mp3, length 186.96s
+[839187838] loaded music/Ill Communication/12 Eugene's Lament.mp3, length 132.49s
+[839187845] loaded music/Ill Communication/13 Flute Loop.mp3, length 114.73s
+[839187848] loaded music/Ill Communication/14 Do It.mp3, length 196.41s
+[839187849] loaded music/Ill Communication/15 Ricky's Theme.mp3, length 223.66s
+[839187850] loaded music/Ill Communication/16 Heart Attack Man.mp3, length 135.00s
+[839187853] UNDERRUN #3 at 0 iters/frame, 8ms/frame
+[839187867] battery 98.7% after 120s (-1.0%) at 50Hz, playing

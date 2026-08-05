@@ -1,0 +1,26 @@
+--- forced reset at 2023/08/25 00:55:03---
+build:f5a85fc69f11-2.0.1-release.156292-buildbot
+   r0:00006702    r1:30006170     r2:00527bbe    r3: 00000000
+  r12:a5a5a5a5    lr:2403142d     pc:2403142e   psr: 01000000
+rcccsr:00000000
+heap allocated: 137775782
+Lua totalbytes=-339771589 GCdebt=1601741642 GCestimate=-1917407628 stacksize=563585758
+
+--- crash at 2026/02/12 21:58:20---
+build:83737252-3.0.3-release.198853-gitlab-runner
+   r0:00008001    r1:20002800     r2:38800088    r3: 00000000
+  r12:00000090    lr:24021437     pc:24021436   psr: 41000000
+ cfsr:00010000  hfsr:40000000  mmfar:00000000  bfar: 54472cfb
+rcccsr:00000000
+heap allocated: 674646150
+Lua totalbytes=-339771589 GCdebt=1601708874 GCestimate=-1917407628 stacksize=563520202
+
+--- crash at 2026/08/04 14:30:02---
+build:057d750f-3.1.1-release.210171-gitlab-runner
+   r0:20010fe8    r1:2403ee5f     r2:300002cc    r3: 20010fe8
+  r12:ffffffff    lr:2403ee5f     pc:2406233a   psr: 410f0000
+ cfsr:00000082  hfsr:00000000  mmfar:40021fdc  bfar: 40021fdc
+rcccsr:00000000
+heap allocated: 2844160
+Lua totalbytes=0 GCdebt=0 GCestimate=0 stacksize=0
+

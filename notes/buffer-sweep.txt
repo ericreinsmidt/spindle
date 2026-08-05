@@ -1,0 +1,71 @@
+[839217033] === buffer size sweep: 5 sizes, 4 seeks each ===
+[839217033] --- buffer 0.10s | warm 35ms | length 258.90
+[839217038] buffer 0.10s seek 1 | to 15.1 | swap 5ms | warm 33ms | underruns 1 | playing
+[839217041] buffer 0.10s seek 2 | to 28.1 | swap 2ms | warm 33ms | underruns 2 | playing
+[839217044] buffer 0.10s seek 3 | to 41.2 | swap 6ms | warm 35ms | underruns 2 | playing
+[839217047] buffer 0.10s seek 4 | to 54.2 | swap 5ms | warm 33ms | underruns 2 | playing
+[839217047] RESULT buffer 0.10s: swap 5ms, warm 33ms, 2 underruns
+[839217047] --- buffer 0.25s | warm 86ms | length 258.90
+[839217053] buffer 0.25s seek 1 | to 15.1 | swap 3ms | warm 84ms | underruns 0 | playing
+[839217056] buffer 0.25s seek 2 | to 28.2 | swap 5ms | warm 84ms | underruns 0 | playing
+[839217059] buffer 0.25s seek 3 | to 41.3 | swap 3ms | warm 82ms | underruns 1 | playing
+[839217062] buffer 0.25s seek 4 | to 54.4 | swap 5ms | warm 85ms | underruns 2 | playing
+[839217062] RESULT buffer 0.25s: swap 5ms, warm 85ms, 2 underruns
+[839217062] --- buffer 0.50s | warm 180ms | length 258.90
+[839217067] buffer 0.50s seek 1 | to 15.2 | swap 4ms | warm 178ms | underruns 0 | playing
+[839217071] buffer 0.50s seek 2 | to 28.4 | swap 4ms | warm 176ms | underruns 0 | playing
+[839217074] buffer 0.50s seek 3 | to 41.6 | swap 3ms | warm 172ms | underruns 0 | playing
+[839217077] buffer 0.50s seek 4 | to 54.8 | swap 4ms | warm 173ms | underruns 0 | playing
+[839217077] RESULT buffer 0.50s: swap 4ms, warm 173ms, 0 underruns
+[839217078] --- buffer 1.00s | warm 390ms | length 258.90
+[839217083] buffer 1.00s seek 1 | to 15.4 | swap 3ms | warm 392ms | underruns 0 | playing
+[839217087] buffer 1.00s seek 2 | to 28.9 | swap 6ms | warm 395ms | underruns 0 | playing
+[839217090] buffer 1.00s seek 3 | to 42.3 | swap 3ms | warm 393ms | underruns 0 | playing
+[839217093] buffer 1.00s seek 4 | to 55.7 | swap 5ms | warm 390ms | underruns 0 | playing
+[839217093] RESULT buffer 1.00s: swap 5ms, warm 390ms, 0 underruns
+[839217095] --- buffer 2.00s | warm 807ms | length 258.90
+[839217101] buffer 2.00s seek 1 | to 15.9 | swap 2ms | warm 814ms | underruns 0 | playing
+[839217105] buffer 2.00s seek 2 | to 29.7 | swap 4ms | warm 814ms | underruns 0 | playing
+[839217109] buffer 2.00s seek 3 | to 43.5 | swap 3ms | warm 824ms | underruns 0 | playing
+[839217112] buffer 2.00s seek 4 | to 57.4 | swap 4ms | warm 811ms | underruns 0 | playing
+[839217112] RESULT buffer 2.00s: swap 4ms, warm 811ms, 0 underruns
+[839217113] === sweep complete ===
+[839217113]   buffer 0.10s: swap 5ms, warm 33ms, 2 underruns
+[839217113]   buffer 0.25s: swap 5ms, warm 85ms, 2 underruns
+[839217113]   buffer 0.50s: swap 4ms, warm 173ms, 0 underruns
+[839217113]   buffer 1.00s: swap 5ms, warm 390ms, 0 underruns
+[839217113]   buffer 2.00s: swap 4ms, warm 811ms, 0 underruns
+[839217153] === buffer size sweep: 5 sizes, 4 seeks each ===
+[839217153] --- buffer 0.10s | warm 34ms | length 258.90
+[839217158] buffer 0.10s seek 1 | to 15.1 | swap 4ms | warm 33ms | underruns 1 | playing
+[839217161] buffer 0.10s seek 2 | to 28.1 | swap 3ms | warm 36ms | underruns 2 | playing
+[839217164] buffer 0.10s seek 3 | to 41.2 | swap 7ms | warm 34ms | underruns 3 | playing
+[839217167] buffer 0.10s seek 4 | to 54.2 | swap 3ms | warm 33ms | underruns 3 | playing
+[839217167] RESULT buffer 0.10s: swap 3ms, warm 33ms, 3 underruns
+[839217167] --- buffer 0.25s | warm 88ms | length 258.90
+[839217177] === buffer size sweep: 5 sizes, 4 seeks each ===
+[839217177] --- buffer 0.10s | warm 34ms | length 258.90
+[839217182] buffer 0.10s seek 1 | to 15.1 | swap 3ms | warm 33ms | underruns 1 | playing
+[839217185] buffer 0.10s seek 2 | to 28.2 | swap 5ms | warm 34ms | underruns 2 | playing
+[839217188] buffer 0.10s seek 3 | to 41.2 | swap 3ms | warm 34ms | underruns 3 | playing
+[839217191] buffer 0.10s seek 4 | to 54.3 | swap 4ms | warm 34ms | underruns 3 | playing
+[839217191] RESULT buffer 0.10s: swap 4ms, warm 34ms, 3 underruns
+[839217191] --- buffer 0.25s | warm 86ms | length 258.90
+[839217196] buffer 0.25s seek 1 | to 15.1 | swap 5ms | warm 84ms | underruns 0 | playing
+[839217200] buffer 0.25s seek 2 | to 28.2 | swap 3ms | warm 86ms | underruns 1 | playing
+[839217203] buffer 0.25s seek 3 | to 41.3 | swap 3ms | warm 87ms | underruns 2 | playing
+[839217206] buffer 0.25s seek 4 | to 54.4 | swap 6ms | warm 88ms | underruns 2 | playing
+[839217206] RESULT buffer 0.25s: swap 6ms, warm 88ms, 2 underruns
+[839217206] --- buffer 0.50s | warm 177ms | length 258.90
+[839217211] buffer 0.50s seek 1 | to 15.2 | swap 4ms | warm 177ms | underruns 0 | playing
+[839217215] buffer 0.50s seek 2 | to 28.4 | swap 3ms | warm 179ms | underruns 0 | playing
+[839217218] buffer 0.50s seek 3 | to 41.6 | swap 4ms | warm 181ms | underruns 0 | playing
+[839217221] buffer 0.50s seek 4 | to 54.8 | swap 3ms | warm 177ms | underruns 0 | playing
+[839217221] RESULT buffer 0.50s: swap 3ms, warm 177ms, 0 underruns
+[839217222] --- buffer 1.00s | warm 394ms | length 258.90
+[839217227] buffer 1.00s seek 1 | to 15.4 | swap 3ms | warm 390ms | underruns 0 | playing
+[839217231] buffer 1.00s seek 2 | to 28.9 | swap 5ms | warm 391ms | underruns 0 | playing
+[839217234] buffer 1.00s seek 3 | to 42.3 | swap 3ms | warm 394ms | underruns 0 | playing
+[839217237] buffer 1.00s seek 4 | to 55.7 | swap 6ms | warm 396ms | underruns 0 | playing
+[839217237] RESULT buffer 1.00s: swap 6ms, warm 396ms, 0 underruns
+[839217239] --- buffer 2.00s | warm 825ms | length 258.90

@@ -1,0 +1,35 @@
+[839218951] === channel-level muting | buffer 0.50s | target 100.0 ===
+[839218951] --- 1: player vol 1, default channel | start offset 99.51 | channel default
+[839218952]   1: player vol 1, default channel  t+0.5s: offset 14.53 len 38.63 moved 85.24 playing
+[839218952]   1: player vol 1, default channel  t+1.0s: offset 14.61 len 38.63 moved 85.45 playing
+[839218953]   1: player vol 1, default channel  t+1.5s: offset 14.70 len 38.63 moved 85.71 playing
+[839218953]   1: player vol 1, default channel  t+2.0s: offset 14.78 len 38.63 moved 85.92 playing
+[839218954]   1: player vol 1, default channel  t+2.5s: offset 14.84 len 38.63 moved 86.18 playing
+[839218954]   1: player vol 1, default channel  t+3.0s: offset 14.90 len 38.63 moved 86.43 playing
+[839218955]   1: player vol 1, default channel  t+3.5s: offset 14.99 len 38.63 moved 86.67 playing
+[839218955]   1: player vol 1, default channel  t+4.0s: offset 15.07 len 38.63 moved 86.95 playing
+[839218955] RESULT 1: player vol 1, default channel -> DECODING (moved 86.95s total in 4s)
+[839218955] --- 2: player vol 1, CHANNEL vol 0 | start offset 99.51 | channel vol 0
+[839218956]   2: player vol 1, CHANNEL vol 0  t+0.5s: offset 14.54 len 38.63 moved 85.32 playing
+[839218956]   2: player vol 1, CHANNEL vol 0  t+1.0s: offset 14.60 len 38.63 moved 85.54 playing
+[839218957]   2: player vol 1, CHANNEL vol 0  t+1.5s: offset 14.68 len 38.63 moved 85.79 playing
+[839218957]   2: player vol 1, CHANNEL vol 0  t+2.0s: offset 14.75 len 38.63 moved 86.04 playing
+[839218958]   2: player vol 1, CHANNEL vol 0  t+2.5s: offset 14.81 len 38.63 moved 86.30 playing
+[839218958]   2: player vol 1, CHANNEL vol 0  t+3.0s: offset 14.91 len 38.63 moved 86.56 playing
+[839218959]   2: player vol 1, CHANNEL vol 0  t+3.5s: offset 14.97 len 38.63 moved 86.86 playing
+[839218959]   2: player vol 1, CHANNEL vol 0  t+4.0s: offset 15.07 len 38.63 moved 87.14 playing
+[839218959] RESULT 2: player vol 1, CHANNEL vol 0 -> DECODING (moved 87.14s total in 4s)
+[839218960] --- 3: player vol 0 | start offset 99.50 | channel default
+[839218960]   3: player vol 0  t+0.5s: offset 99.50 len 258.90 moved 0.00 playing
+[839218961]   3: player vol 0  t+1.0s: offset 99.50 len 258.90 moved 0.00 playing
+[839218961]   3: player vol 0  t+1.5s: offset 99.50 len 258.90 moved 0.00 playing
+[839218962]   3: player vol 0  t+2.0s: offset 99.50 len 258.90 moved 0.00 playing
+[839218962]   3: player vol 0  t+2.5s: offset 99.50 len 258.90 moved 0.00 playing
+[839218963]   3: player vol 0  t+3.0s: offset 99.50 len 258.90 moved 0.00 playing
+[839218963]   3: player vol 0  t+3.5s: offset 99.50 len 258.90 moved 0.00 playing
+[839218964]   3: player vol 0  t+4.0s: offset 99.50 len 258.90 moved 0.00 playing
+[839218964] RESULT 3: player vol 0 -> FROZEN (moved 0.00s total in 4s)
+[839218964] === summary ===
+[839218964]   1: player vol 1, default channel -> DECODING (moved 86.95s total in 4s)
+[839218964]   2: player vol 1, CHANNEL vol 0 -> DECODING (moved 87.14s total in 4s)
+[839218964]   3: player vol 0 -> FROZEN (moved 0.00s total in 4s)

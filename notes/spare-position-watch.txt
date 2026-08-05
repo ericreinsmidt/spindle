@@ -1,0 +1,130 @@
+[839218415] === spare position watch | buffer 0.50s ===
+[839218415] --- round 1: target 100.0 | spare immediately after setOffset: offset 99.50 len 258.90 playing
+[839218416] round 1   spare t+0.5s: offset 99.50 len 258.90 playing
+[839218416] round 1   spare t+1.0s: offset 99.50 len 258.90 playing
+[839218417] round 1   spare t+1.5s: offset 99.50 len 258.90 playing
+[839218417] round 1   spare t+2.0s: offset 99.50 len 258.90 playing
+[839218418] round 1   spare t+2.5s: offset 99.50 len 258.90 playing
+[839218418] round 1   spare t+3.0s: offset 99.50 len 258.90 playing
+[839218419] round 1   spare t+3.5s: offset 99.50 len 258.90 playing
+[839218419] round 1   spare t+4.0s: offset 99.50 len 258.90 playing
+[839218420] round 1   spare t+4.5s: offset 99.50 len 258.90 playing
+[839218420] round 1   spare t+5.0s: offset 99.50 len 258.90 playing
+[839218420] round 1: SWAPPING. spare is at: offset 99.50 len 258.90 playing
+[839218420] round 1: after swap, active: offset 99.50 len 258.90 playing
+[839218421] round 1   active t+0.5s: offset 14.52 len 38.63 playing
+[839218421] round 1   active t+1.0s: offset 14.60 len 38.63 playing
+[839218422] round 1   active t+1.5s: offset 14.68 len 38.63 playing
+[839218422] round 1   active t+2.0s: offset 14.76 len 38.63 playing
+[839218423] round 1   active t+2.5s: offset 14.84 len 38.63 playing
+[839218423] round 1   active t+3.0s: offset 14.90 len 38.63 playing
+[839218424] round 1   active t+3.5s: offset 14.97 len 38.63 playing
+[839218424] round 1   active t+4.0s: offset 15.05 len 38.63 playing
+[839218425] --- round 2: target 60.0 | spare immediately after setOffset: offset 59.51 len 258.90 playing
+[839218425] round 2   spare t+0.5s: offset 59.51 len 258.90 playing
+[839218426] round 2   spare t+1.0s: offset 59.51 len 258.90 playing
+[839218426] round 2   spare t+1.5s: offset 59.51 len 258.90 playing
+[839218427] round 2   spare t+2.0s: offset 59.51 len 258.90 playing
+[839218427] round 2   spare t+2.5s: offset 59.51 len 258.90 playing
+[839218428] round 2   spare t+3.0s: offset 59.51 len 258.90 playing
+[839218428] round 2   spare t+3.5s: offset 59.51 len 258.90 playing
+[839218429] round 2   spare t+4.0s: offset 59.51 len 258.90 playing
+[839218429] round 2   spare t+4.5s: offset 59.51 len 258.90 playing
+[839218430] round 2   spare t+5.0s: offset 59.51 len 258.90 playing
+[839218430] round 2: SWAPPING. spare is at: offset 59.51 len 258.90 playing
+[839218430] round 2: after swap, active: offset 59.51 len 258.90 playing
+[839218430] round 2   active t+0.5s: offset 2.78 len 13.91 playing
+[839218431] round 2   active t+1.0s: offset 2.84 len 13.91 playing
+[839218431] round 2   active t+1.5s: offset 2.86 len 13.91 playing
+[839218432] round 2   active t+2.0s: offset 2.88 len 13.91 playing
+[839218432] round 2   active t+2.5s: offset 2.89 len 13.91 playing
+[839218433] round 2   active t+3.0s: offset 2.93 len 13.91 playing
+[839218433] round 2   active t+3.5s: offset 2.96 len 13.91 playing
+[839218434] round 2   active t+4.0s: offset 2.99 len 13.91 playing
+[839218434] --- round 3: target 150.0 | spare immediately after setOffset: offset 149.50 len 258.90 playing
+[839218435] round 3   spare t+0.5s: offset 149.50 len 258.90 playing
+[839218435] round 3   spare t+1.0s: offset 149.50 len 258.90 playing
+[839218436] round 3   spare t+1.5s: offset 149.50 len 258.90 playing
+[839218436] round 3   spare t+2.0s: offset 149.50 len 258.90 playing
+[839218437] round 3   spare t+2.5s: offset 149.50 len 258.90 playing
+[839218437] round 3   spare t+3.0s: offset 149.50 len 258.90 playing
+[839218438] round 3   spare t+3.5s: offset 149.50 len 258.90 playing
+[839218438] round 3   spare t+4.0s: offset 149.50 len 258.90 playing
+[839218439] round 3   spare t+4.5s: offset 149.50 len 258.90 playing
+[839218439] round 3   spare t+5.0s: offset 149.50 len 258.90 playing
+[839218439] round 3: SWAPPING. spare is at: offset 149.50 len 258.90 playing
+[839218439] round 3: after swap, active: offset 149.50 len 258.90 playing
+[839218440] round 3   active t+0.5s: offset 1.10 len 1.91 playing
+[839218440] round 3   active t+1.0s: offset 0.00 len 0.00 playing
+[839218441] round 3   active t+1.5s: offset 0.00 len 258.90 STOPPED
+[839218441] round 3   active t+2.0s: offset 0.00 len 258.90 STOPPED
+[839218442] round 3   active t+2.5s: offset 0.00 len 258.90 STOPPED
+[839218442] round 3   active t+3.0s: offset 0.00 len 258.90 STOPPED
+[839218443] round 3   active t+3.5s: offset 0.00 len 258.90 STOPPED
+[839218443] round 3   active t+4.0s: offset 0.00 len 258.90 STOPPED
+[839218443] === done ===
+[839218466] === spare position watch | buffer 0.50s ===
+[839218466] --- round 1: target 100.0 | spare immediately after setOffset: offset 99.50 len 258.90 playing
+[839218467] round 1   spare t+0.5s: offset 99.50 len 258.90 playing
+[839218467] round 1   spare t+1.0s: offset 99.50 len 258.90 playing
+[839218468] round 1   spare t+1.5s: offset 99.50 len 258.90 playing
+[839218468] round 1   spare t+2.0s: offset 99.50 len 258.90 playing
+[839218469] round 1   spare t+2.5s: offset 99.50 len 258.90 playing
+[839218469] round 1   spare t+3.0s: offset 99.50 len 258.90 playing
+[839218470] round 1   spare t+3.5s: offset 99.50 len 258.90 playing
+[839218470] round 1   spare t+4.0s: offset 99.50 len 258.90 playing
+[839218471] round 1   spare t+4.5s: offset 99.50 len 258.90 playing
+[839218471] round 1   spare t+5.0s: offset 99.50 len 258.90 playing
+[839218471] round 1: SWAPPING. spare is at: offset 99.50 len 258.90 playing
+[839218471] round 1: after swap, active: offset 99.51 len 258.90 playing
+[839218472] round 1   active t+0.5s: offset 14.53 len 38.63 playing
+[839218472] round 1   active t+1.0s: offset 14.60 len 38.63 playing
+[839218473] round 1   active t+1.5s: offset 14.68 len 38.63 playing
+[839218473] round 1   active t+2.0s: offset 14.76 len 38.63 playing
+[839218474] round 1   active t+2.5s: offset 14.84 len 38.63 playing
+[839218474] round 1   active t+3.0s: offset 14.92 len 38.63 playing
+[839218475] round 1   active t+3.5s: offset 14.99 len 38.63 playing
+[839218475] round 1   active t+4.0s: offset 15.06 len 38.63 playing
+[839218476] --- round 2: target 60.0 | spare immediately after setOffset: offset 59.51 len 258.90 playing
+[839218476] round 2   spare t+0.5s: offset 59.51 len 258.90 playing
+[839218477] round 2   spare t+1.0s: offset 59.51 len 258.90 playing
+[839218477] round 2   spare t+1.5s: offset 59.51 len 258.90 playing
+[839218478] round 2   spare t+2.0s: offset 59.51 len 258.90 playing
+[839218478] round 2   spare t+2.5s: offset 59.51 len 258.90 playing
+[839218479] round 2   spare t+3.0s: offset 59.51 len 258.90 playing
+[839218479] round 2   spare t+3.5s: offset 59.51 len 258.90 playing
+[839218480] round 2   spare t+4.0s: offset 59.51 len 258.90 playing
+[839218480] round 2   spare t+4.5s: offset 59.51 len 258.90 playing
+[839218481] round 2   spare t+5.0s: offset 59.51 len 258.90 playing
+[839218481] round 2: SWAPPING. spare is at: offset 59.51 len 258.90 playing
+[839218481] round 2: after swap, active: offset 59.51 len 258.90 playing
+[839218481] round 2   active t+0.5s: offset 2.78 len 13.91 playing
+[839218482] round 2   active t+1.0s: offset 2.79 len 13.91 playing
+[839218482] round 2   active t+1.5s: offset 2.85 len 13.91 playing
+[839218483] round 2   active t+2.0s: offset 2.88 len 13.91 playing
+[839218483] round 2   active t+2.5s: offset 2.89 len 13.91 playing
+[839218484] round 2   active t+3.0s: offset 2.93 len 13.91 playing
+[839218484] round 2   active t+3.5s: offset 2.93 len 13.91 playing
+[839218485] round 2   active t+4.0s: offset 2.96 len 13.91 playing
+[839218485] --- round 3: target 150.0 | spare immediately after setOffset: offset 149.50 len 258.90 playing
+[839218485] round 3   spare t+0.5s: offset 149.50 len 258.90 playing
+[839218486] round 3   spare t+1.0s: offset 149.50 len 258.90 playing
+[839218486] round 3   spare t+1.5s: offset 149.50 len 258.90 playing
+[839218487] round 3   spare t+2.0s: offset 149.50 len 258.90 playing
+[839218487] round 3   spare t+2.5s: offset 149.50 len 258.90 playing
+[839218488] round 3   spare t+3.0s: offset 149.50 len 258.90 playing
+[839218488] round 3   spare t+3.5s: offset 149.50 len 258.90 playing
+[839218489] round 3   spare t+4.0s: offset 149.50 len 258.90 playing
+[839218489] round 3   spare t+4.5s: offset 149.50 len 258.90 playing
+[839218490] round 3   spare t+5.0s: offset 149.50 len 258.90 playing
+[839218490] round 3: SWAPPING. spare is at: offset 149.50 len 258.90 playing
+[839218490] round 3: after swap, active: offset 149.50 len 258.90 playing
+[839218490] round 3   active t+0.5s: offset 1.10 len 1.91 playing
+[839218491] round 3   active t+1.0s: offset 0.00 len 0.00 playing
+[839218491] round 3   active t+1.5s: offset 0.00 len 258.90 STOPPED
+[839218492] round 3   active t+2.0s: offset 0.00 len 258.90 STOPPED
+[839218493] round 3   active t+2.5s: offset 0.00 len 258.90 STOPPED
+[839218493] round 3   active t+3.0s: offset 0.00 len 258.90 STOPPED
+[839218493] round 3   active t+3.5s: offset 0.00 len 258.90 STOPPED
+[839218494] round 3   active t+4.0s: offset 0.00 len 258.90 STOPPED
+[839218494] === done ===

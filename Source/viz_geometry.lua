@@ -26,11 +26,20 @@ local sinePi <const> = Visualizers.sinePi
 local ChladniFigures = {
     name = "Chladni",
 
-    -- Evaluating the plate function over a grid is the expensive part, so the
-    -- grid is coarse and each cell is drawn as a small block. Five pixels per
-    -- cell across a 400 by 240 screen is 80 by 48, so 3840 evaluations per
-    -- frame rather than the 6000 that four pixel cells needed.
-    cellSize = 5,
+    -- The grid the contour is traced over. It does not need to be fine enough
+    -- to look smooth, because the crossing points are interpolated between grid
+    -- points, so the curve is smooth regardless. It only needs to be fine
+    -- enough to follow the shape without cutting corners. Eight pixels across a
+    -- 400 by 240 screen is 50 by 30, which is 1581 evaluations per frame
+    -- against the 3840 the filled version needed.
+    cellSize = 8,
+
+    -- How thick the nodal lines are drawn, with loudness adding to the base.
+    -- One weight for the whole figure rather than per cell: varying thickness
+    -- with the local gradient was tried, to fatten the figure where nodal lines
+    -- converge, but it cost frames and looked worse than a uniform heavy line.
+    baseLineWidth = 7,
+    additionalLineWidthWhenLoud = 4,
 
     -- The mode numbers move toward their targets rather than jumping, so the
     -- pattern morphs smoothly instead of flickering between shapes.
@@ -49,12 +58,15 @@ function ChladniFigures:reset()
     self.phaseOffset = 0
 
     -- Reused every frame so the per frame work allocates nothing.
+    self.sineNofX = {}
+    self.sineMofX = {}
     self.sineMofY = {}
     self.sineNofY = {}
+    self.plateValues = {}
 end
 
 function ChladniFigures:draw(context)
-    if not self.sineMofY then
+    if not self.plateValues then
         self:reset()
     end
 
@@ -95,9 +107,14 @@ function ChladniFigures:draw(context)
     -- pattern each axis starts, which is a cheap way to make it interactive.
     self.phaseOffset = (self.phaseOffset or 0) + context.crankDelta / 360
 
-    -- Louder passages widen the nodal lines, so the figure thickens with the
-    -- music instead of staying a constant hairline.
-    local lineThreshold = 0.06 + mid * 0.14
+    -- Louder passages thicken the nodal lines, so the figure still responds to
+    -- the music. When the contour was drawn as filled cells this was a
+    -- threshold on how near zero counted as being on the line; now that it is a
+    -- traced curve, line width is the direct equivalent.
+    -- Rounded to whole pixels, because a fractional width on a 1-bit screen
+    -- just moves where the edge lands rather than producing a finer line.
+    local lineWidth = self.baseLineWidth
+        + math.floor(mid * self.additionalLineWidthWhenLoud)
 
     local cellSize = self.cellSize
     local columnCount = context.width // cellSize
@@ -107,60 +124,144 @@ function ChladniFigures:draw(context)
     local modeM = self.modeNumberM
     local phase = self.phaseOffset
 
-    -- Precompute the vertical sines once per frame.
+    -- Precompute the sines along each axis once per frame.
     --
-    -- These depend only on the row, so having them inside the inner loop meant
-    -- recomputing the identical value once per column, eighty times over for
-    -- every row. That alone was most of the cost: the first version of this ran
-    -- at six frames per second.
+    -- These depend only on their own coordinate, so evaluating them inside the
+    -- inner loop meant recomputing the identical value once per column, eighty
+    -- times over for every row. That was most of the cost: the first version of
+    -- this ran at six frames per second.
     --
     -- The tables are allocated once and reused rather than rebuilt each frame,
-    -- to keep the garbage collector out of it.
+    -- to keep the garbage collector out of it. They cover one more entry than
+    -- there are cells, because the contour is traced between grid points and
+    -- needs the value at the far edge too.
+    local sineNofX = self.sineNofX
+    local sineMofX = self.sineMofX
+    for column = 0, columnCount do
+        local horizontalPosition = column / columnCount + phase
+        sineNofX[column] = sinePi(modeN * horizontalPosition)
+        sineMofX[column] = sinePi(modeM * horizontalPosition)
+    end
+
     local sineMofY = self.sineMofY
     local sineNofY = self.sineNofY
-    for row = 0, rowCount - 1 do
+    for row = 0, rowCount do
         local verticalPosition = row / rowCount
         sineMofY[row] = sinePi(modeM * verticalPosition)
         sineNofY[row] = sinePi(modeN * verticalPosition)
     end
 
-    for column = 0, columnCount - 1 do
-        local horizontalPosition = column / columnCount + phase
-        local sineNofX = sinePi(modeN * horizontalPosition)
-        local sineMofX = sinePi(modeM * horizontalPosition)
-
-        -- Draw vertical runs of consecutive nodal cells as a single rectangle
-        -- rather than one rectangle per cell. On a typical figure the nodal
-        -- lines are several cells long, so this cuts the number of draw calls
-        -- by roughly the average run length.
-        local runStartRow = nil
-
-        for row = 0, rowCount - 1 do
-            local plateValue = sineNofX * sineMofY[row] - sineMofX * sineNofY[row]
-            local isOnNodalLine = plateValue < lineThreshold and plateValue > -lineThreshold
-
-            if isOnNodalLine then
-                if not runStartRow then
-                    runStartRow = row
-                end
-            elseif runStartRow then
-                graphics.fillRect(
-                    column * cellSize,
-                    runStartRow * cellSize,
-                    cellSize,
-                    (row - runStartRow) * cellSize)
-                runStartRow = nil
-            end
-        end
-
-        if runStartRow then
-            graphics.fillRect(
-                column * cellSize,
-                runStartRow * cellSize,
-                cellSize,
-                (rowCount - runStartRow) * cellSize)
+    -- Evaluate the plate function at every grid point, storing the results so
+    -- each one is computed once rather than four times over as a corner of four
+    -- neighbouring cells.
+    local plateValues = self.plateValues
+    local valuesPerColumn = rowCount + 1
+    for column = 0, columnCount do
+        local columnSineN = sineNofX[column]
+        local columnSineM = sineMofX[column]
+        local columnBase = column * valuesPerColumn
+        for row = 0, rowCount do
+            plateValues[columnBase + row] =
+                columnSineN * sineMofY[row] - columnSineM * sineNofY[row]
         end
     end
+
+    -- Trace the nodal contour rather than filling cells.
+    --
+    -- Filling every cell where the function was near zero produced lines as
+    -- thick as the grid, which is why it looked blocky next to the visualizers
+    -- that draw real lines. Instead, each cell is examined for places where the
+    -- function changes sign along one of its edges. That crossing is the exact
+    -- point where the plate is still, and its position along the edge is found
+    -- by linear interpolation, so the resulting curve is smooth at a resolution
+    -- far finer than the grid itself.
+    --
+    -- A cell with two crossings has a single piece of contour passing through
+    -- it, so the two points are joined. Four crossings means a saddle, where
+    -- two separate branches pass through the same cell, and joining them in
+    -- pairs is close enough at this size.
+    graphics.setLineWidth(lineWidth)
+
+    for column = 0, columnCount - 1 do
+        local leftBase = column * valuesPerColumn
+        local rightBase = leftBase + valuesPerColumn
+        local cellLeft = column * cellSize
+        local cellRight = cellLeft + cellSize
+
+        for row = 0, rowCount - 1 do
+            local topLeft = plateValues[leftBase + row]
+            local topRight = plateValues[rightBase + row]
+            local bottomLeft = plateValues[leftBase + row + 1]
+            local bottomRight = plateValues[rightBase + row + 1]
+
+            -- Sign tests are cheap, and most cells have no contour in them at
+            -- all, so this rejects the majority before any arithmetic.
+            local topLeftIsNegative = topLeft < 0
+            if topLeftIsNegative ~= (topRight < 0)
+                or topLeftIsNegative ~= (bottomLeft < 0)
+                or topLeftIsNegative ~= (bottomRight < 0) then
+
+                local cellTop = row * cellSize
+                local cellBottom = cellTop + cellSize
+
+                local crossingCount = 0
+                local firstX, firstY, secondX, secondY
+                local thirdX, thirdY, fourthX, fourthY
+
+                if topLeftIsNegative ~= (topRight < 0) then
+                    crossingCount = 1
+                    firstX = cellLeft + cellSize * (topLeft / (topLeft - topRight))
+                    firstY = cellTop
+                end
+
+                if (topRight < 0) ~= (bottomRight < 0) then
+                    local crossingX = cellRight
+                    local crossingY = cellTop + cellSize * (topRight / (topRight - bottomRight))
+                    crossingCount = crossingCount + 1
+                    if crossingCount == 1 then
+                        firstX, firstY = crossingX, crossingY
+                    else
+                        secondX, secondY = crossingX, crossingY
+                    end
+                end
+
+                if (bottomLeft < 0) ~= (bottomRight < 0) then
+                    local crossingX = cellLeft + cellSize * (bottomLeft / (bottomLeft - bottomRight))
+                    local crossingY = cellBottom
+                    crossingCount = crossingCount + 1
+                    if crossingCount == 1 then
+                        firstX, firstY = crossingX, crossingY
+                    elseif crossingCount == 2 then
+                        secondX, secondY = crossingX, crossingY
+                    else
+                        thirdX, thirdY = crossingX, crossingY
+                    end
+                end
+
+                if topLeftIsNegative ~= (bottomLeft < 0) then
+                    local crossingX = cellLeft
+                    local crossingY = cellTop + cellSize * (topLeft / (topLeft - bottomLeft))
+                    crossingCount = crossingCount + 1
+                    if crossingCount == 2 then
+                        secondX, secondY = crossingX, crossingY
+                    elseif crossingCount == 3 then
+                        thirdX, thirdY = crossingX, crossingY
+                    else
+                        fourthX, fourthY = crossingX, crossingY
+                    end
+                end
+
+                if crossingCount == 2 then
+                    graphics.drawLine(firstX, firstY, secondX, secondY)
+                elseif crossingCount == 4 then
+                    graphics.drawLine(firstX, firstY, secondX, secondY)
+                    graphics.drawLine(thirdX, thirdY, fourthX, fourthY)
+                end
+            end
+        end
+    end
+
+    graphics.setLineWidth(1)
 end
 
 Visualizers.register(ChladniFigures)

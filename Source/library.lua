@@ -18,11 +18,13 @@ local LIBRARY_INDEX_NAME <const> = "library"
 -- Every album from the index, in the order ingest emitted them.
 Library.albums = {}
 
--- A flattened view of every track in the library, used by shuffle and by any
--- screen that needs to walk tracks without descending through albums. Each
--- entry holds the track itself plus a reference back to its album, so artist
--- and artwork stay available without a second lookup.
-Library.allTracks = {}
+-- How many tracks the library holds in total, across every album.
+--
+-- This used to be a flattened list with an entry per track, built so shuffle and
+-- any screen wanting to walk tracks could avoid descending through albums.
+-- Nothing walks it any more, and building a table per track to answer one
+-- question is not worth it, so it is a count.
+Library.trackCount = 0
 
 -- Set when loading fails, so the app can explain itself rather than showing an
 -- empty list and leaving the user to guess.
@@ -48,7 +50,7 @@ end
 -- Returns true when a usable library was loaded.
 function Library.load()
     Library.albums = {}
-    Library.allTracks = {}
+    Library.trackCount = 0
     Library.loadError = nil
 
     if not playdate.file.exists(LIBRARY_INDEX_NAME .. ".json") then
@@ -72,22 +74,14 @@ function Library.load()
     Library.albums = indexOrError.albums
     sortAlbumsByArtistThenTitle(Library.albums)
 
-    for albumIndex, album in ipairs(Library.albums) do
+    for _, album in ipairs(Library.albums) do
         -- Guard against an album entry with no tracks, which would otherwise
         -- produce a selectable but empty row.
         album.tracks = album.tracks or {}
-
-        for trackIndex, track in ipairs(album.tracks) do
-            table.insert(Library.allTracks, {
-                album = album,
-                albumIndex = albumIndex,
-                track = track,
-                trackIndex = trackIndex,
-            })
-        end
+        Library.trackCount = Library.trackCount + #album.tracks
     end
 
-    if #Library.allTracks == 0 then
+    if Library.trackCount == 0 then
         Library.loadError = "The library contains no playable tracks."
         return false
     end
@@ -106,20 +100,6 @@ function Library.playbackListForAlbum(album)
             album = album,
             track = track,
             trackIndex = trackIndex,
-        })
-    end
-    return playbackList
-end
-
-
--- Build a playback list covering the whole library in shelf order.
-function Library.playbackListForEverything()
-    local playbackList = {}
-    for _, entry in ipairs(Library.allTracks) do
-        table.insert(playbackList, {
-            album = entry.album,
-            track = entry.track,
-            trackIndex = entry.trackIndex,
         })
     end
     return playbackList
@@ -156,7 +136,7 @@ end
 -- Work out where an album's list thumbnail lives.
 --
 -- Ingest writes artwork at two sizes: the full 140 pixel image the index points
--- at, and a 36 pixel thumbnail sitting beside it with "-thumb" on the end. The
+-- at, and a 60 pixel thumbnail sitting beside it with "-thumb" on the end. The
 -- second path is derived here rather than stored in the index, because it is
 -- always the same transformation and putting it in the index would mean every
 -- library had to be rebuilt to gain thumbnails.

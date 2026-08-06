@@ -335,6 +335,54 @@ Visualizers.register(Boids)
 -- trails, which accumulate rather than being redrawn, so the network builds up
 -- over time without any per frame cost for the history.
 
+-- How the food source pulls the colony toward it.
+--
+-- Two mechanisms, and the important part is that they do not overlap. Each owns
+-- a range and hands over to the other, because having both pull at once is what
+-- made the colony stop being a colony.
+--
+-- Far out, a gentle bias on the heading turns an agent roughly the right way.
+-- That is all it does: it is deliberately weak, because an agent that beelines
+-- is an agent that is not laying an interesting trail on the way.
+--
+-- Near in, the bias switches off entirely and the food takes over as a mound
+-- laid into the sensing grid, which agents climb with exactly the same rule they
+-- use for each other's trails. Convergence on food is then emergent rather than
+-- commanded, which is both how the real organism does it and what leaves room
+-- for the branching to survive.
+--
+-- Getting this balance wrong is instructive in both directions. The bias started
+-- at 0.05 as the only mechanism, which is at most 0.16 radians against a trail
+-- rule that turns by 0.5 to 1.3, so food was outvoted ten to one and ignored.
+-- Adding the mound and raising the bias to 0.16 overcorrected: every agent
+-- beelined and then orbited, so the only thing drawn was the ellipse the food
+-- travels on.
+local FOOD_MOUND_RADIUS_IN_CELLS <const> = 9
+local FOOD_MOUND_PEAK <const> = 1.6
+local FOOD_HEADING_BIAS <const> = 0.05
+
+-- Where the bias stops and the mound takes over. Slightly wider than the mound
+-- itself, so the two overlap rather than leaving a band where neither applies.
+local FOOD_BIAS_HANDOVER_DISTANCE <const> = 60
+
+-- A small random turn on every agent every frame.
+--
+-- This is the piece that was missing, and weakening the food twice did not
+-- replace it. Every rule in here is deterministic: sense three points, turn to
+-- the strongest, repeat. Agents in the same place facing the same way therefore
+-- do the same thing forever, which is why the colony kept settling into one tidy
+-- shape rather than sprawling. Physarum models include a random component for
+-- exactly this reason, and it is what turns a tidy shape into a branching one.
+local WANDER_TURN <const> = 0.3
+
+-- Agents that reach the middle of the mound get scattered hard instead of being
+-- allowed to settle on it. Without this they arrive and stay, and 170 agents
+-- sitting on one point is a blob rather than a network. Scattering them sends
+-- them back out along whichever trail they happen to pick up, which is what
+-- draws branches radiating from the food rather than a ring around it.
+local FOOD_CORE_DISTANCE <const> = 28
+local FOOD_SCATTER_TURN <const> = 2.0
+
 local SlimeMould = {
     name = "Slime",
     agentCount = 170,
@@ -346,12 +394,14 @@ local SlimeMould = {
 function SlimeMould:reset()
     self.agents = {}
     for agentNumber = 1, self.agentCount do
-        -- Start in a ring facing outward, which gives the colony something to
-        -- grow from rather than an even smear.
+        -- Start spread across the screen facing outward from the middle. A
+        -- tight ring was tried and left the colony a long time recovering from
+        -- being a ring, which is not a shape it ever produces on its own.
         local startAngle = (agentNumber / self.agentCount) * math.pi * 2
+        local startDistance = 30 + (agentNumber % 7) * 14
         self.agents[agentNumber] = {
-            x = 200 + math.cos(startAngle) * 40,
-            y = 120 + math.sin(startAngle) * 40,
+            x = 200 + math.cos(startAngle) * startDistance,
+            y = 120 + math.sin(startAngle) * startDistance * 0.6,
             heading = startAngle,
         }
     end
@@ -415,10 +465,32 @@ function SlimeMould:draw(context)
                 agent.heading = agent.heading + math.pi * 0.5
             end
 
-            -- Bias gently toward the food the crank controls.
-            local towardFood = math.atan(foodY - agent.y, foodX - agent.x)
-            local headingDifference = (towardFood - agent.heading + math.pi * 3) % (math.pi * 2) - math.pi
-            agent.heading = agent.heading + headingDifference * 0.05
+            -- Turn toward the food the crank controls, but only from far enough
+            -- away that there is no mound to sense yet. Inside that distance the
+            -- sensing above is already steering toward it, and applying both at
+            -- once is what collapsed the colony onto the food.
+            local towardFoodX = foodX - agent.x
+            local towardFoodY = foodY - agent.y
+            local distanceToFoodSquared = towardFoodX * towardFoodX + towardFoodY * towardFoodY
+
+            if distanceToFoodSquared
+                > FOOD_BIAS_HANDOVER_DISTANCE * FOOD_BIAS_HANDOVER_DISTANCE then
+                local towardFood = math.atan(towardFoodY, towardFoodX)
+                local headingDifference =
+                    (towardFood - agent.heading + math.pi * 3) % (math.pi * 2) - math.pi
+                agent.heading = agent.heading + headingDifference * FOOD_HEADING_BIAS
+
+            elseif distanceToFoodSquared
+                < FOOD_CORE_DISTANCE * FOOD_CORE_DISTANCE then
+                -- Arrived. Scatter rather than settle, so the food is somewhere
+                -- the network passes through instead of somewhere it ends.
+                agent.heading = agent.heading
+                    + (math.random() - 0.5) * FOOD_SCATTER_TURN
+            end
+
+            -- Wander, so that two agents in the same place facing the same way
+            -- do not stay identical forever.
+            agent.heading = agent.heading + (math.random() - 0.5) * WANDER_TURN
 
             agent.x = agent.x + math.cos(agent.heading) * moveSpeed
             agent.y = agent.y + math.sin(agent.heading) * moveSpeed
@@ -442,12 +514,46 @@ function SlimeMould:draw(context)
         end
     graphics.popContext()
 
+    -- Lay the food into the sensing grid as a mound, strongest at the middle and
+    -- falling off to nothing at the edge, so there is a slope for agents to
+    -- climb rather than a cliff they can only find by landing on it.
+    --
+    -- It goes in after the agents have moved, so it is never flattened by an
+    -- agent depositing on the same cell, and it is laid fresh every frame so the
+    -- decay that thins out old trails does not thin this out too.
+    --
+    -- The peak sits above the 1.0 an agent trail is capped at, which is what
+    -- makes the colony prefer food over its own path once it can smell it.
+    local foodColumn = math.floor(foodX / 400 * self.gridColumnCount)
+    local foodRow = math.floor(foodY / 240 * self.gridRowCount)
+    local trailGrid = self.trailGrid
+
+    for columnOffset = -FOOD_MOUND_RADIUS_IN_CELLS, FOOD_MOUND_RADIUS_IN_CELLS do
+        local column = foodColumn + columnOffset
+        if column >= 0 and column < self.gridColumnCount then
+            for rowOffset = -FOOD_MOUND_RADIUS_IN_CELLS, FOOD_MOUND_RADIUS_IN_CELLS do
+                local row = foodRow + rowOffset
+                if row >= 0 and row < self.gridRowCount then
+                    local distance = math.sqrt(columnOffset * columnOffset
+                        + rowOffset * rowOffset)
+                    if distance <= FOOD_MOUND_RADIUS_IN_CELLS then
+                        local strength = FOOD_MOUND_PEAK
+                            * (1 - distance / FOOD_MOUND_RADIUS_IN_CELLS)
+                        local cellIndex = row * self.gridColumnCount + column + 1
+                        if strength > trailGrid[cellIndex] then
+                            trailGrid[cellIndex] = strength
+                        end
+                    end
+                end
+            end
+        end
+    end
+
     -- Decay the sensing grid only every third frame. Touching four thousand
     -- cells every frame is the single most expensive thing here, and the
     -- behaviour is indistinguishable at a third of the rate.
     self.framesSinceClear = self.framesSinceClear + 1
     if self.framesSinceClear % 3 == 0 then
-        local trailGrid = self.trailGrid
         for cellIndex = 1, #trailGrid do
             trailGrid[cellIndex] = trailGrid[cellIndex] * 0.9
         end

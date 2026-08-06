@@ -26,6 +26,7 @@ import "artwork"
 import "screen_library"
 import "screen_nowplaying"
 import "screen_visualizer"
+import "screen_pocket"
 
 local graphics <const> = playdate.graphics
 
@@ -36,6 +37,7 @@ local screensByName = {
     library = ScreenLibrary,
     nowplaying = ScreenNowPlaying,
     visualizer = ScreenVisualizer,
+    pocket = ScreenPocket,
 }
 
 local currentScreenName = "library"
@@ -207,6 +209,13 @@ function playdate.update()
         screen = screensByName[currentScreenName]
     end
 
-    graphics.clear()
-    screen.draw()
+    -- Screens normally get a freshly cleared frame. Pocket mode takes that over
+    -- so it can leave the previous frame on the display and draw nothing at all,
+    -- which is where its saving comes from.
+    if screen.ownsItsOwnClearing then
+        screen.draw()
+    else
+        graphics.clear()
+        screen.draw()
+    end
 end

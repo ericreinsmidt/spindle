@@ -40,12 +40,6 @@ Player.PLAY_MODE_IN_ORDER = 1
 Player.PLAY_MODE_SHUFFLE_TRACKS = 2
 Player.PLAY_MODE_SHUFFLE_ALBUMS = 3
 
-Player.PLAY_MODE_NAMES = {
-    [Player.PLAY_MODE_IN_ORDER] = "in order",
-    [Player.PLAY_MODE_SHUFFLE_TRACKS] = "shuffle tracks",
-    [Player.PLAY_MODE_SHUFFLE_ALBUMS] = "shuffle albums",
-}
-
 -- Repeat is a separate axis from the play mode rather than another value in the
 -- same list. Shuffling decides what order things come in, repeating decides
 -- what happens when the list runs out, and every combination of the two is
@@ -54,12 +48,6 @@ Player.PLAY_MODE_NAMES = {
 Player.REPEAT_OFF = 1
 Player.REPEAT_ALBUM = 2
 Player.REPEAT_TRACK = 3
-
-Player.REPEAT_MODE_NAMES = {
-    [Player.REPEAT_OFF] = "repeat off",
-    [Player.REPEAT_ALBUM] = "repeat album",
-    [Player.REPEAT_TRACK] = "repeat track",
-}
 
 -- The list of entries currently queued for playback, and where we are in it.
 -- Each entry is a table holding an album and a track, as built by library.lua.
@@ -456,11 +444,6 @@ function Player.cyclePlayMode()
 end
 
 
-function Player.playModeName()
-    return Player.PLAY_MODE_NAMES[Player.playMode]
-end
-
-
 function Player.cycleRepeatMode()
     Player.repeatMode = Player.repeatMode + 1
     if Player.repeatMode > Player.REPEAT_TRACK then
@@ -471,11 +454,6 @@ function Player.cycleRepeatMode()
     -- likely the wrong track now. Turning on repeat track while the last ten
     -- seconds are playing would otherwise still hand over to the next song.
     discardWarmedPlayer()
-end
-
-
-function Player.repeatModeName()
-    return Player.REPEAT_MODE_NAMES[Player.repeatMode]
 end
 
 

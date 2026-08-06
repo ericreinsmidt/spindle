@@ -14,6 +14,7 @@ import "player"
 import "analysis"
 import "typography"
 import "artwork"
+import "glyphs"
 
 ScreenNowPlaying = {}
 
@@ -55,32 +56,34 @@ local SPECTRUM_MAXIMUM_HEIGHT <const> = 46
 -- of each slice, and the peak of any given second of a mastered record is very
 -- nearly full scale, so it was pinned to the top for most of most songs. It now
 -- draws RMS loudness, which actually varies.
+--
+-- It was cut to 16 either side to make room for a row of playback state under
+-- it. That row has gone, the glyphs that replaced it live on the time row, and
+-- the height goes back where it came from rather than being left as a gap.
 local WAVEFORM_LEFT <const> = 6
 local WAVEFORM_WIDTH <const> = 388
-local WAVEFORM_CENTRE_Y <const> = 170
-local WAVEFORM_HALF_HEIGHT <const> = 16
+local WAVEFORM_CENTRE_Y <const> = 176
+local WAVEFORM_HALF_HEIGHT <const> = 22
 
 -- The playhead marker extends a little beyond the waveform so it stays visible
 -- during a quiet passage where the waveform itself is only a few pixels tall.
 local PLAYHEAD_OVERHANG <const> = 6
 
--- The playback state gets a full width row under the waveform. It used to sit
--- in the right hand column, where "paused   shuffle albums   repeat album" ran
--- off the edge of the screen and repeat needed a second line of its own. Across
--- the full width it fits on one line with room to spare.
-local PLAYBACK_STATE_Y <const> = 194
-
 local TIME_ROW_Y <const> = 216
+
+-- The playback glyphs share the time row, centred between the elapsed time on
+-- the left and the total on the right. That band was already there and empty,
+-- which is the whole reason the state row above it could go.
+--
+-- Nudged up by a pixel so a 20 pixel glyph sits level with 18 pixel type rather
+-- than one pixel low.
+local GLYPH_ROW_TOP <const> = TIME_ROW_Y - 1
+local GLYPH_GAP <const> = 10
 
 -- Album artwork is cached so that stepping between tracks on the same record
 -- does not reload the same image on every frame.
 local cachedArtworkImage = nil
 local cachedArtworkPath = nil
-
--- A short lived message shown after changing play mode, so the change is
--- visible without permanently occupying screen space.
-local transientMessage = nil
-local transientMessageExpiresAtMilliseconds = 0
 
 -- Down carries two controls: a short press cycles the play mode, and holding it
 -- cycles the repeat mode. They share a button because this screen has no free
@@ -94,11 +97,13 @@ local REPEAT_HOLD_DURATION_MILLISECONDS <const> = 400
 local downPressedAtMilliseconds = nil
 local downHoldAlreadyFired = false
 
+-- B does the same trick: a short press goes back, a longer one drops into
+-- pocket mode. Longer than the repeat hold, because going back is the common
+-- action of the two and should not feel like it is waiting on anything.
+local POCKET_HOLD_DURATION_MILLISECONDS <const> = 700
 
-local function showTransientMessage(message)
-    transientMessage = message
-    transientMessageExpiresAtMilliseconds = playdate.getCurrentTimeMilliseconds() + 1500
-end
+local backPressedAtMilliseconds = nil
+local backHoldAlreadyFired = false
 
 
 -- Load the artwork for an album, reusing the cached image when the album has
@@ -238,12 +243,56 @@ local function drawWaveformScrubBar(analysis, positionInSeconds, lengthInSeconds
 end
 
 
+-- Draw what playback is doing, as a centred row of glyphs.
+--
+-- Text was tried first and the trouble with it is that the interesting states
+-- are the unusual ones, and text gives them no more weight than the ordinary
+-- ones. "paused   shuffle albums   repeat album" is also close to the width of
+-- the screen, so it had to live on its own full width row.
+--
+-- Only the transport is always drawn. In order and repeat off contribute
+-- nothing, so a row with one glyph means one thing is out of the ordinary and
+-- you can see that without reading anything.
+local function drawPlaybackGlyphs()
+    local drawGlyph = {}
+
+    table.insert(drawGlyph, Player.isPlaying() and Glyphs.drawPlay or Glyphs.drawPause)
+
+    if Player.playMode == Player.PLAY_MODE_SHUFFLE_TRACKS then
+        table.insert(drawGlyph, Glyphs.drawShuffle)
+    elseif Player.playMode == Player.PLAY_MODE_SHUFFLE_ALBUMS then
+        -- Two glyphs, because shuffling whole records is a different thing from
+        -- shuffling songs and one mark cannot say both. The record after the
+        -- crossed arrows says what is being shuffled.
+        table.insert(drawGlyph, Glyphs.drawShuffle)
+        table.insert(drawGlyph, Glyphs.drawRecord)
+    end
+
+    if Player.repeatMode == Player.REPEAT_ALBUM then
+        table.insert(drawGlyph, Glyphs.drawRepeat)
+    elseif Player.repeatMode == Player.REPEAT_TRACK then
+        table.insert(drawGlyph, Glyphs.drawRepeatTrack)
+    end
+
+    local totalWidth = #drawGlyph * Glyphs.SIZE + (#drawGlyph - 1) * GLYPH_GAP
+    local left = (SCREEN_WIDTH - totalWidth) // 2
+
+    for _, draw in ipairs(drawGlyph) do
+        draw(left, GLYPH_ROW_TOP)
+        left = left + Glyphs.SIZE + GLYPH_GAP
+    end
+end
+
+
 function ScreenNowPlaying.enter()
-    -- Clear the hold tracking, in case the screen was left while down was still
-    -- held. Otherwise the release would land here on the way back in and cycle
-    -- the play mode nobody asked to change.
+    -- Clear the hold tracking, in case the screen was left while a button was
+    -- still held. Otherwise the release lands here on the way back in and fires
+    -- an action nobody asked for, which matters most coming back from pocket
+    -- mode, where B has almost certainly just been held down.
     downPressedAtMilliseconds = nil
     downHoldAlreadyFired = false
+    backPressedAtMilliseconds = nil
+    backHoldAlreadyFired = false
 end
 
 
@@ -282,14 +331,12 @@ function ScreenNowPlaying.update()
         and playdate.getCurrentTimeMilliseconds() - downPressedAtMilliseconds
             >= REPEAT_HOLD_DURATION_MILLISECONDS then
         Player.cycleRepeatMode()
-        showTransientMessage(Player.repeatModeName())
         downHoldAlreadyFired = true
     end
 
     if playdate.buttonJustReleased(playdate.kButtonDown) then
         if not downHoldAlreadyFired then
             Player.cyclePlayMode()
-            showTransientMessage(Player.playModeName())
         end
         downPressedAtMilliseconds = nil
     end
@@ -298,8 +345,33 @@ function ScreenNowPlaying.update()
         return "visualizer"
     end
 
+    -- B carries two controls the same way down does: a short press goes back to
+    -- the library, holding it drops into pocket mode.
+    --
+    -- Pocket mode needs a deliberate way in and this screen has no spare button,
+    -- so it shares one. The system menu was the alternative and is worse, since
+    -- opening it stops the audio, which is precisely the wrong thing to do at
+    -- the moment you are putting the device away with music playing.
     if playdate.buttonJustPressed(playdate.kButtonB) then
-        return "library"
+        backPressedAtMilliseconds = playdate.getCurrentTimeMilliseconds()
+        backHoldAlreadyFired = false
+    end
+
+    if backPressedAtMilliseconds
+        and not backHoldAlreadyFired
+        and playdate.buttonIsPressed(playdate.kButtonB)
+        and playdate.getCurrentTimeMilliseconds() - backPressedAtMilliseconds
+            >= POCKET_HOLD_DURATION_MILLISECONDS then
+        backHoldAlreadyFired = true
+        backPressedAtMilliseconds = nil
+        return "pocket"
+    end
+
+    if playdate.buttonJustReleased(playdate.kButtonB) then
+        backPressedAtMilliseconds = nil
+        if not backHoldAlreadyFired then
+            return "library"
+        end
     end
 
     return nil
@@ -361,17 +433,7 @@ function ScreenNowPlaying.draw()
     drawSpectrumStrip(analysis, position)
     drawWaveformScrubBar(analysis, position, length)
 
-    -- The playback state across the full width. Repeat off is the normal case
-    -- and does not need saying, so it only joins the line when something is
-    -- actually repeating.
-    local stateParts = {
-        Player.isPlaying() and "playing" or "paused",
-        Player.playModeName(),
-    }
-    if Player.repeatMode ~= Player.REPEAT_OFF then
-        table.insert(stateParts, Player.repeatModeName())
-    end
-    graphics.drawText(table.concat(stateParts, "   "), WAVEFORM_LEFT, PLAYBACK_STATE_Y)
+    drawPlaybackGlyphs()
 
     -- Elapsed on the left, total on the right. The total is right aligned by
     -- measuring it rather than guessing a character width, because the font is
@@ -382,16 +444,4 @@ function ScreenNowPlaying.draw()
     graphics.drawText(totalDurationText,
         SCREEN_WIDTH - WAVEFORM_LEFT - Typography.body:getTextWidth(totalDurationText),
         TIME_ROW_Y)
-
-    -- The transient message sits between the two times, where nothing else
-    -- competes for space.
-    if transientMessage then
-        if playdate.getCurrentTimeMilliseconds() < transientMessageExpiresAtMilliseconds then
-            graphics.drawText(transientMessage,
-                (SCREEN_WIDTH - Typography.body:getTextWidth(transientMessage)) / 2,
-                TIME_ROW_Y)
-        else
-            transientMessage = nil
-        end
-    end
 end

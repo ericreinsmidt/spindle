@@ -13,6 +13,7 @@ import "library"
 import "player"
 import "analysis"
 import "typography"
+import "artwork"
 
 ScreenNowPlaying = {}
 
@@ -121,6 +122,12 @@ end
 -- Draw a placeholder in the artwork slot when a record has no cover, rather
 -- than leaving a hole. A 45 adapter outline echoes the app's own mark.
 local function drawArtworkPlaceholder()
+    -- Sits on the same coloured ground a real cover would, so a record without
+    -- artwork does not read the opposite way round from one with it.
+    graphics.setColor(Artwork.paperColor())
+    graphics.fillRect(ARTWORK_LEFT, ARTWORK_TOP, ARTWORK_SIZE, ARTWORK_SIZE)
+
+    graphics.setColor(Artwork.inkColor())
     graphics.drawRect(ARTWORK_LEFT, ARTWORK_TOP, ARTWORK_SIZE, ARTWORK_SIZE)
 
     local centreX = ARTWORK_LEFT + ARTWORK_SIZE / 2
@@ -138,6 +145,9 @@ local function drawArtworkPlaceholder()
             centreY + math.sin(spokeAngle) * 44
         )
     end
+
+    -- Leave black selected, since everything drawn after this expects it.
+    graphics.setColor(graphics.kColorBlack)
 end
 
 
@@ -307,9 +317,13 @@ function ScreenNowPlaying.draw()
     local track = entry.track
     local album = entry.album
 
+    -- Here the cover sits on the screen background rather than inside a
+    -- highlight, so unlike the album list this one does depend on whether the
+    -- display is inverted. Artwork.draw flips it on the way in when it is, so
+    -- the display's flip on the way out cancels and a cover stays a cover.
     local artwork = artworkForAlbum(album)
     if artwork then
-        artwork:draw(ARTWORK_LEFT, ARTWORK_TOP)
+        Artwork.draw(artwork, ARTWORK_LEFT, ARTWORK_TOP)
     else
         drawArtworkPlaceholder()
     end

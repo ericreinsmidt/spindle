@@ -17,6 +17,7 @@
 import "library"
 import "player"
 import "typography"
+import "artwork"
 
 ScreenLibrary = {}
 
@@ -210,15 +211,21 @@ local function thumbnailForAlbum(album, albumIndex)
 end
 
 
--- Stand in for a missing cover. It is drawn as a white square with a black
--- outline and a centre hole, echoing the 45 adapter the app is named for, and
--- that combination reads on both a plain row and a highlighted one without
--- needing to know which it is sitting on.
-local function drawCoverPlaceholder(left, top)
-    graphics.setColor(graphics.kColorWhite)
+-- Stand in for a missing cover, drawn as a square with an outline and a centre
+-- hole that echoes the 45 adapter the app is named for.
+--
+-- It flips exactly when a real cover would, so that a record without artwork
+-- sits the same way round as one with it. Getting this wrong would be more
+-- obvious than leaving it plain, because the two would disagree down a single
+-- list.
+local function drawCoverPlaceholder(left, top, shouldFlip)
+    local paperColor = shouldFlip and graphics.kColorBlack or graphics.kColorWhite
+    local inkColor = shouldFlip and graphics.kColorWhite or graphics.kColorBlack
+
+    graphics.setColor(paperColor)
     graphics.fillRect(left, top, ALBUM_COVER_SIZE, ALBUM_COVER_SIZE)
 
-    graphics.setColor(graphics.kColorBlack)
+    graphics.setColor(inkColor)
     graphics.drawRect(left, top, ALBUM_COVER_SIZE, ALBUM_COVER_SIZE)
 
     local centreX = left + ALBUM_COVER_SIZE / 2
@@ -234,6 +241,9 @@ local function drawCoverPlaceholder(left, top)
             centreX + math.cos(spokeAngle) * 24,
             centreY + math.sin(spokeAngle) * 24)
     end
+
+    -- Leave black selected, since everything drawn after this expects it.
+    graphics.setColor(graphics.kColorBlack)
 end
 
 
@@ -303,21 +313,44 @@ local function drawAlbumList()
         local bandTop = ALBUM_LIST_TOP_EDGE + (visibleRow - 1) * ALBUM_ROW_HEIGHT
 
         drawRow(bandTop, ALBUM_ROW_HEIGHT, albumIndex == selectedAlbumIndex, function(isSelected)
-            -- Artwork is drawn in normal copy mode whether or not the row is
-            -- selected, then the white fill mode is put back for the text.
-            graphics.setImageDrawMode(graphics.kDrawModeCopy)
+            -- A cover should look like a photograph, so on an inverted display
+            -- every one of them is flipped back rather than left as a negative.
+            --
+            -- On a normal display nothing is flipped and nothing needs to be,
+            -- including the highlighted row, where a light cover sitting in a
+            -- dark bar reads perfectly well.
+            --
+            -- The narrower rule of flipping only the highlighted row was tried
+            -- first, on the reasoning that the highlight bar comes out light and
+            -- is therefore the only place a cover has light ground to sit on.
+            -- That leaves the rest as negatives, which is the thing worth
+            -- avoiding in the first place.
+            local shouldFlipCover = Artwork.displayIsInverted
+
+            graphics.setImageDrawMode(shouldFlipCover
+                and graphics.kDrawModeInverted
+                or graphics.kDrawModeCopy)
 
             local coverTop = bandTop + (ALBUM_ROW_HEIGHT - ALBUM_COVER_SIZE) // 2
             local thumbnail = thumbnailForAlbum(album, albumIndex)
             if thumbnail then
                 thumbnail:draw(ALBUM_COVER_LEFT, coverTop)
             else
-                drawCoverPlaceholder(ALBUM_COVER_LEFT, coverTop)
+                drawCoverPlaceholder(ALBUM_COVER_LEFT, coverTop, shouldFlipCover)
             end
 
-            if isSelected then
-                graphics.setImageDrawMode(graphics.kDrawModeFillWhite)
-            end
+            -- Put the text's own draw mode back, for both kinds of row rather
+            -- than only the highlighted one.
+            --
+            -- This used to restore it only when the row was selected, which
+            -- worked purely by luck: back then the cover was drawn in plain copy
+            -- mode, which is what the text on an unselected row wanted anyway.
+            -- The moment covers started being flipped, every unselected row was
+            -- drawing its text in inverted mode as well, and the text
+            -- disappeared.
+            graphics.setImageDrawMode(isSelected
+                and graphics.kDrawModeFillWhite
+                or graphics.kDrawModeCopy)
 
             local textTop = bandTop + (ALBUM_ROW_HEIGHT - textBlockHeight) // 2
 

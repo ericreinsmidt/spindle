@@ -23,6 +23,7 @@ import "analysis"
 import "player"
 import "session"
 import "typography"
+import "artwork"
 import "screen_library"
 import "screen_nowplaying"
 import "screen_visualizer"
@@ -104,8 +105,12 @@ local function setUpSystemMenu()
     -- It is a checkbox rather than a decision because a reflective screen with
     -- no backlight behaves quite differently inverted depending on the light you
     -- are sitting in, so it is worth being able to flip it and look.
+    --
+    -- It goes through artwork.lua rather than straight to the display, because
+    -- album covers have to be flipped on the way in so the display's flip on the
+    -- way out cancels. A negative of a face does not read as a face.
     systemMenu:addCheckmarkMenuItem("invert", false, function(shouldInvert)
-        playdate.display.setInverted(shouldInvert)
+        Artwork.setDisplayInverted(shouldInvert)
     end)
 end
 

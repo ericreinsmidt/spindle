@@ -30,7 +30,7 @@ Every item here was measured on real hardware during Phase 0, not assumed.
 |---|---|
 | Audio stops when the device is locked or the system menu opens | Playback only happens with the screen on. An in-app lock is required. Resume behaviour matters more than usual |
 | MP3 seeking is O(n), costing roughly 89.5 ms per second of seek target | MP3 is unusable for scrubbing. ADPCM seeks in about 1 ms |
-| There is no backlight. The display is reflective memory-in-pixel | A static screen is nearly free to hold, but dropping the refresh rate only saves about 22 percent of battery, so animation is affordable. Whether white on black reads better depends on the light you are in rather than on taste, so inverting is a system menu checkbox using `playdate.display.setInverted` |
+| There is no backlight. The display is reflective memory-in-pixel | A static screen is nearly free to hold, but dropping the refresh rate only saves about 22 percent of battery, so animation is affordable. Whether white on black reads better depends on the light you are in rather than on taste, so inverting is a system menu checkbox using `playdate.display.setInverted`. Album art is flipped on the way in when it is on, so the display's flip on the way out cancels and a cover never shows as a negative |
 | Drawing is bound by how much ink reaches the screen, not by arithmetic | Anything visual has to be timed on hardware. The Simulator runs where filling pixels is nearly free and will mislead you about which of two versions is faster |
 | The SDK provides no FFT, only a per-frame amplitude level | Frequency data has to be precomputed during ingest |
 | `getOffset` and `getLength` return wrong values on MP3 | Track the playhead locally. This stops mattering once everything is ADPCM |

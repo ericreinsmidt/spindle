@@ -46,6 +46,21 @@ Player.PLAY_MODE_NAMES = {
     [Player.PLAY_MODE_SHUFFLE_ALBUMS] = "shuffle albums",
 }
 
+-- Repeat is a separate axis from the play mode rather than another value in the
+-- same list. Shuffling decides what order things come in, repeating decides
+-- what happens when the list runs out, and every combination of the two is
+-- meaningful: shuffled tracks on endless repeat is a perfectly reasonable thing
+-- to ask for.
+Player.REPEAT_OFF = 1
+Player.REPEAT_ALBUM = 2
+Player.REPEAT_TRACK = 3
+
+Player.REPEAT_MODE_NAMES = {
+    [Player.REPEAT_OFF] = "repeat off",
+    [Player.REPEAT_ALBUM] = "repeat album",
+    [Player.REPEAT_TRACK] = "repeat track",
+}
+
 -- The list of entries currently queued for playback, and where we are in it.
 -- Each entry is a table holding an album and a track, as built by library.lua.
 local playbackList = {}
@@ -78,6 +93,7 @@ local pendingScrubInSeconds = 0
 local lastScrubCommitInMilliseconds = 0
 
 Player.playMode = Player.PLAY_MODE_IN_ORDER
+Player.repeatMode = Player.REPEAT_OFF
 
 
 -- ---------------------------------------------------------------------------
@@ -206,6 +222,13 @@ local function startEntryAt(playbackPosition, startAtSeconds)
     currentTrackLengthInSeconds = activePlayer:getLength() or entry.track.duration or 0
 
     if startAtSeconds and startAtSeconds > 0 then
+        -- Keep the start clear of the very end of the track. A restored session
+        -- can name a position within a second of the end, and starting there
+        -- would trip the track boundary check on the very first frame and skip
+        -- straight past the song you were listening to.
+        if startAtSeconds > currentTrackLengthInSeconds - 1 then
+            startAtSeconds = math.max(0, currentTrackLengthInSeconds - 1)
+        end
         activePlayer:setOffset(startAtSeconds)
         setPlayheadTo(startAtSeconds)
     else
@@ -251,6 +274,32 @@ function Player.playList(entries, startPosition)
     end
 
     return startEntryAt(startPosition, 0)
+end
+
+
+-- Start a playback list at an exact position and offset, without the shuffling
+-- that playList applies, and optionally leave it paused.
+--
+-- This is what restoring a saved session uses. A saved position only means
+-- anything against the list exactly as it was, so reshuffling here would land
+-- on a different song than the one that was saved, and a session that was
+-- paused when the device died should come back paused rather than start playing
+-- in someone's bag.
+function Player.restore(entries, startPosition, startAtSeconds, shouldPlay)
+    playbackList = entries or {}
+    if #playbackList == 0 then
+        return false
+    end
+
+    if not startEntryAt(startPosition or 1, startAtSeconds or 0) then
+        return false
+    end
+
+    if not shouldPlay then
+        Player.togglePause()
+    end
+
+    return true
 end
 
 
@@ -319,11 +368,33 @@ function Player.addCrankScrub(crankChangeInDegrees)
 end
 
 
--- Choose what plays after the current entry, honouring the play mode. Returns
--- the playback list position to move to, or nil when playback should stop.
-local function nextPlaybackPosition()
-    if Player.playMode == Player.PLAY_MODE_SHUFFLE_ALBUMS
-        and positionInPlaybackList >= #playbackList then
+-- Choose what plays after the current entry, honouring both the play mode and
+-- the repeat mode. Returns the playback list position to move to, or nil when
+-- playback should stop.
+--
+-- isAutomaticAdvance separates a track running out on its own from the user
+-- pressing next. It only matters for repeat track, which means "play this again
+-- when it ends" and not "disable the next button". A manual skip ignores it and
+-- moves on, which is what every other player does.
+local function nextPlaybackPosition(isAutomaticAdvance)
+    if isAutomaticAdvance and Player.repeatMode == Player.REPEAT_TRACK then
+        return positionInPlaybackList
+    end
+
+    if positionInPlaybackList < #playbackList then
+        return positionInPlaybackList + 1
+    end
+
+    -- Everything from here on is about what happens at the end of the list.
+
+    if Player.repeatMode == Player.REPEAT_ALBUM then
+        -- Start the same record again. This is tested before shuffle albums
+        -- because asking for this record on repeat is more specific than asking
+        -- for a random record next, so it should win.
+        return 1
+    end
+
+    if Player.playMode == Player.PLAY_MODE_SHUFFLE_ALBUMS then
         -- The record finished, so put on another one at random.
         local nextAlbum = Library.randomAlbum()
         if nextAlbum then
@@ -332,16 +403,12 @@ local function nextPlaybackPosition()
         end
     end
 
-    if positionInPlaybackList < #playbackList then
-        return positionInPlaybackList + 1
-    end
-
     return nil
 end
 
 
 function Player.skipToNext()
-    local nextPosition = nextPlaybackPosition()
+    local nextPosition = nextPlaybackPosition(false)
     if nextPosition then
         startEntryAt(nextPosition, 0)
     end
@@ -394,6 +461,24 @@ function Player.playModeName()
 end
 
 
+function Player.cycleRepeatMode()
+    Player.repeatMode = Player.repeatMode + 1
+    if Player.repeatMode > Player.REPEAT_TRACK then
+        Player.repeatMode = Player.REPEAT_OFF
+    end
+
+    -- Whatever was pre-warmed was chosen under the old rule, so it is very
+    -- likely the wrong track now. Turning on repeat track while the last ten
+    -- seconds are playing would otherwise still hand over to the next song.
+    discardWarmedPlayer()
+end
+
+
+function Player.repeatModeName()
+    return Player.REPEAT_MODE_NAMES[Player.repeatMode]
+end
+
+
 -- ---------------------------------------------------------------------------
 -- Per-frame work
 -- ---------------------------------------------------------------------------
@@ -402,7 +487,7 @@ end
 -- created on a muted channel at full player volume, which is the combination
 -- that decodes silently.
 local function warmNextTrack()
-    local upcomingPosition = nextPlaybackPosition()
+    local upcomingPosition = nextPlaybackPosition(true)
     if not upcomingPosition then
         return
     end
@@ -489,7 +574,7 @@ function Player.update()
         if warmedPlayer then
             swapToWarmedTrack()
         else
-            local nextPosition = nextPlaybackPosition()
+            local nextPosition = nextPlaybackPosition(true)
             if nextPosition then
                 startEntryAt(nextPosition, 0)
             else

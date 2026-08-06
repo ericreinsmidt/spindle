@@ -15,6 +15,7 @@
 
 import "visualizers"
 import "player"
+import "typography"
 import "viz_geometry"
 import "viz_life"
 import "viz_meters"
@@ -62,6 +63,19 @@ local drawTimingsByName = {}
 -- development aid rather than something to look at while listening.
 ScreenVisualizer.showTimings = false
 
+-- Where the timing report is written, inside the app's data folder.
+local TIMING_REPORT_FILE_NAME <const> = "visualizer-timings.txt"
+
+-- While the overlay is up the report is rewritten on this interval as well as
+-- on the way out, so you can confirm the file is being produced without having
+-- to leave the screen first.
+local TIMING_REPORT_REWRITE_INTERVAL_MILLISECONDS <const> = 5000
+
+local lastTimingReportAttemptAtMilliseconds = 0
+
+-- What happened the last time the report was written, shown in the overlay.
+ScreenVisualizer.timingReportStatus = "not written yet"
+
 
 local function recordDrawTiming(visualizerName, milliseconds)
     local timing = drawTimingsByName[visualizerName]
@@ -81,10 +95,21 @@ end
 -- Write what has been measured so far to a file that can be read off the
 -- device, because reading numbers off a screen while a visualizer is animating
 -- is not a reliable way to compare them.
+--
+-- This used to fail silently. It was only called on the way out of the screen,
+-- it discarded the error playdate.file.open returns alongside a nil handle, and
+-- so when the file did not turn up on the device there was nothing at all to
+-- say why. It now records what happened, the overlay shows that, and the report
+-- is rewritten periodically while the overlay is up rather than only on exit,
+-- so a failure is visible while you are still standing in front of it.
 function ScreenVisualizer.writeTimingReport()
-    local reportFile = playdate.file.open("visualizer-timings.txt", playdate.file.kFileWrite)
+    lastTimingReportAttemptAtMilliseconds = playdate.getCurrentTimeMilliseconds()
+
+    local reportFile, openError =
+        playdate.file.open(TIMING_REPORT_FILE_NAME, playdate.file.kFileWrite)
     if not reportFile then
-        return
+        ScreenVisualizer.timingReportStatus = "write failed: " .. tostring(openError)
+        return false
     end
 
     reportFile:write("visualizer draw cost, measured on device\n")
@@ -105,6 +130,21 @@ function ScreenVisualizer.writeTimingReport()
     end
 
     reportFile:close()
+
+    -- Read the size back rather than reporting success on the strength of the
+    -- writes not having thrown. A file that exists and is zero bytes long looks
+    -- exactly like a file that was never written when you go looking for it on
+    -- the Mac, so the number is worth having.
+    local writtenSize = playdate.file.getSize(TIMING_REPORT_FILE_NAME)
+    if writtenSize and writtenSize > 0 then
+        ScreenVisualizer.timingReportStatus =
+            string.format("wrote %s, %d bytes", TIMING_REPORT_FILE_NAME, writtenSize)
+        return true
+    end
+
+    ScreenVisualizer.timingReportStatus =
+        TIMING_REPORT_FILE_NAME .. " came back empty after writing"
+    return false
 end
 
 
@@ -150,6 +190,15 @@ end
 
 
 function ScreenVisualizer.update()
+    -- Keep the report up to date while the overlay is being watched, so the
+    -- status line in it reflects a write that just happened rather than one
+    -- from the last time the screen was left.
+    if ScreenVisualizer.showTimings
+        and playdate.getCurrentTimeMilliseconds() - lastTimingReportAttemptAtMilliseconds
+            >= TIMING_REPORT_REWRITE_INTERVAL_MILLISECONDS then
+        ScreenVisualizer.writeTimingReport()
+    end
+
     if playdate.buttonJustPressed(playdate.kButtonUp) then
         switchToVisualizer(selectedVisualizerIndex + 1)
     end
@@ -193,7 +242,10 @@ function ScreenVisualizer.draw()
     )
 
     if visualizerErrorMessage then
-        graphics.drawText("*" .. visualizer.name .. " failed*", 20, 96)
+        graphics.setFont(Typography.large)
+        graphics.drawText(visualizer.name .. " failed", 20, 96)
+
+        graphics.setFont(Typography.body)
         graphics.drawText(visualizerErrorMessage, 20, 120)
         graphics.drawText("up for the next visualizer", 20, 160)
         return
@@ -211,19 +263,34 @@ function ScreenVisualizer.draw()
     recordDrawTiming(visualizer.name,
         playdate.getCurrentTimeMilliseconds() - drawStartedAtMilliseconds)
 
+    -- Both overlays set the font explicitly. Whichever screen ran last leaves
+    -- its own font selected, and the boxes here are sized by measuring the text,
+    -- so an inherited font would size the box for one font and draw with
+    -- another the moment the order of screens changed.
+    graphics.setFont(Typography.body)
+
     if ScreenVisualizer.showTimings then
         local timing = drawTimingsByName[visualizer.name]
-        local overlay = string.format("%.0fms avg  %.0fms worst  %d fps",
+        local numbersLine = string.format("%.0fms avg  %.0fms worst  %d fps",
             timing.totalMilliseconds / timing.sampleCount,
             timing.worstMilliseconds,
             playdate.getFPS())
 
-        local overlayWidth = graphics.getTextSize(overlay)
+        -- The second line is the state of the report file. It is here rather
+        -- than hidden behind a successful write, because the whole point is to
+        -- be able to see that the file is not appearing.
+        local statusLine = ScreenVisualizer.timingReportStatus
+
+        local overlayWidth = math.max(
+            Typography.body:getTextWidth(numbersLine),
+            Typography.body:getTextWidth(statusLine))
+
         graphics.setColor(graphics.kColorWhite)
-        graphics.fillRect(4, 214, overlayWidth + 10, 22)
+        graphics.fillRect(4, 198, overlayWidth + 10, 38)
         graphics.setColor(graphics.kColorBlack)
-        graphics.drawRect(4, 214, overlayWidth + 10, 22)
-        graphics.drawText(overlay, 9, 217)
+        graphics.drawRect(4, 198, overlayWidth + 10, 38)
+        graphics.drawText(numbersLine, 9, 201)
+        graphics.drawText(statusLine, 9, 217)
     end
 
     -- The name overlay after switching. It is drawn with a white box behind it
@@ -232,7 +299,7 @@ function ScreenVisualizer.draw()
     if playdate.getCurrentTimeMilliseconds() < nameOverlayExpiresAtMilliseconds then
         local label = string.format("%s   %d/%d",
             visualizer.name, selectedVisualizerIndex, Visualizers.count())
-        local labelWidth = graphics.getTextSize(label)
+        local labelWidth = Typography.body:getTextWidth(label)
 
         graphics.setColor(graphics.kColorWhite)
         graphics.fillRect(6, 6, labelWidth + 12, 24)

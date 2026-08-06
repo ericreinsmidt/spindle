@@ -153,6 +153,29 @@ function Library.randomAlbum()
 end
 
 
+-- Work out where an album's list thumbnail lives.
+--
+-- Ingest writes artwork at two sizes: the full 140 pixel image the index points
+-- at, and a 36 pixel thumbnail sitting beside it with "-thumb" on the end. The
+-- second path is derived here rather than stored in the index, because it is
+-- always the same transformation and putting it in the index would mean every
+-- library had to be rebuilt to gain thumbnails.
+--
+-- Returns nil for an album that has no artwork at all. The file may also simply
+-- not exist, for a library ingested before thumbnails were added, so callers
+-- have to check.
+function Library.thumbnailPathForAlbum(album)
+    local artworkPath = album and album.art
+    if not artworkPath then
+        return nil
+    end
+
+    -- The parentheses matter: gsub returns the replacement count as a second
+    -- value, and without them that count would be returned to the caller too.
+    return (string.gsub(artworkPath, "%.pdi$", "-thumb.pdi"))
+end
+
+
 -- Format a duration in seconds as minutes and seconds, which is how every
 -- screen wants to display it.
 function Library.formatDuration(durationInSeconds)

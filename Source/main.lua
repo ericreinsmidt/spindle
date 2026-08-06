@@ -21,6 +21,8 @@ import "CoreLibs/crank"
 import "library"
 import "analysis"
 import "player"
+import "session"
+import "typography"
 import "screen_library"
 import "screen_nowplaying"
 import "screen_visualizer"
@@ -59,7 +61,15 @@ end
 -- the user guessing.
 local function drawStartupError()
     graphics.clear()
-    graphics.drawText("*Spindle*", 8, 10)
+
+    -- The fonts are set explicitly here rather than relying on whatever was set
+    -- last. The asterisk markup that used to make this heading bold only works
+    -- with a registered font family, and the app now draws with single fonts
+    -- loaded by hand, so the large font is what makes a heading a heading.
+    graphics.setFont(Typography.large)
+    graphics.drawText("Spindle", 8, 10)
+
+    graphics.setFont(Typography.body)
     graphics.drawText(Library.loadError or "The library could not be loaded.", 8, 44)
 end
 
@@ -99,6 +109,14 @@ math.randomseed(playdate.getSecondsSinceEpoch())
 
 if Library.load() then
     setUpSystemMenu()
+
+    -- Pick up where the last session left off. Whether the music starts again
+    -- by itself depends on how that session ended, which session.lua works out
+    -- from the file it saved. When there is nothing to restore this does
+    -- nothing and the app opens on the album list as before.
+    if Session.restore() then
+        switchToScreen("nowplaying")
+    end
 else
     startupFailed = true
 end
@@ -108,12 +126,19 @@ end
 -- Lifecycle
 -- ---------------------------------------------------------------------------
 
--- Audio does not survive the system menu or a device lock, so there is no
--- point pretending playback continues. These callbacks exist so the app knows
--- the interruption happened, which is what a future resume feature will use to
--- decide whether to start playing again automatically.
+-- Audio does not survive the system menu or a device lock, so every one of
+-- these is a moment where playback is about to be interrupted and the position
+-- is about to stop being worth anything. Each saves the session, marked as an
+-- interruption rather than a clean exit, so that whatever happens next the app
+-- knows where it was.
+--
+-- gameWillTerminate is the one exception. It only fires when the user chose to
+-- leave, so it is the single place the session is marked as having ended
+-- cleanly, and that is what stops the app from starting the music again by
+-- itself on the next launch.
 
 function playdate.gameWillPause()
+    Session.save(false)
 end
 
 
@@ -122,10 +147,21 @@ end
 
 
 function playdate.deviceWillLock()
+    Session.save(false)
 end
 
 
 function playdate.deviceDidUnlock()
+end
+
+
+function playdate.deviceWillSleep()
+    Session.save(false)
+end
+
+
+function playdate.gameWillTerminate()
+    Session.save(true)
 end
 
 
@@ -142,6 +178,11 @@ function playdate.update()
     -- The player handles crank scrub commits, pre-warming the next track, and
     -- the gapless swap at each track boundary.
     Player.update()
+
+    -- Rewrites the session file every so often while music plays, so a flat
+    -- battery costs at most half a minute of position rather than the whole
+    -- track.
+    Session.update()
 
     local screen = screensByName[currentScreenName]
 

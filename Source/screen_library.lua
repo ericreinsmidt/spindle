@@ -8,9 +8,15 @@
 --
 -- The crank scrolls the list, and up and down do the same thing, because the
 -- crank is an enhancement and never a requirement.
+--
+-- The album list shows three rows at a time rather than filling the screen with
+-- them. A cover you cannot make out is not worth drawing, and three rows leaves
+-- enough height for a 60 pixel cover and a title in the large font. Scrolling
+-- past a few extra rows costs a second; squinting at a list costs every time.
 
 import "library"
 import "player"
+import "typography"
 
 ScreenLibrary = {}
 
@@ -20,16 +26,42 @@ local graphics <const> = playdate.graphics
 -- revolution feels close to a scroll wheel.
 local CRANK_TICKS_PER_REVOLUTION <const> = 8
 
-local ALBUM_ROW_HEIGHT <const> = 36
-local TRACK_ROW_HEIGHT <const> = 26
-local LIST_TOP_EDGE <const> = 30
-
--- The track list sits lower than the album list, because the album title and
--- artist occupy a header above it.
-local TRACK_LIST_TOP_EDGE <const> = 46
+local SCREEN_HEIGHT <const> = 240
 local LIST_LEFT_EDGE <const> = 6
 local LIST_WIDTH <const> = 388
-local SCREEN_HEIGHT <const> = 240
+
+-- The right hand end of the usable area, short of the scroll bar.
+local CONTENT_RIGHT_EDGE <const> = 390
+
+-- ---------------------------------------------------------------------------
+-- Album list geometry
+-- ---------------------------------------------------------------------------
+
+local ALBUM_LIST_TOP_EDGE <const> = 30
+
+-- Three rows in the 210 pixels below the header.
+local ALBUM_ROW_HEIGHT <const> = 70
+
+local ALBUM_COVER_SIZE <const> = 60
+local ALBUM_COVER_LEFT <const> = 10
+local ALBUM_TEXT_LEFT <const> = ALBUM_COVER_LEFT + ALBUM_COVER_SIZE + 12
+
+-- The gap between the album title and the line of detail underneath it.
+local ALBUM_TITLE_TO_DETAIL_GAP <const> = 3
+
+-- ---------------------------------------------------------------------------
+-- Track list geometry
+-- ---------------------------------------------------------------------------
+
+local TRACK_LIST_TOP_EDGE <const> = 52
+local TRACK_ROW_HEIGHT <const> = 30
+
+local TRACK_NUMBER_LEFT <const> = 10
+local TRACK_TITLE_LEFT <const> = 46
+
+-- How much room the running time needs on the right, so titles are trimmed
+-- before they reach it rather than drawing over the top of it.
+local TRACK_DURATION_COLUMN_WIDTH <const> = 56
 
 -- Which view is showing: the album list, or the tracks inside one album.
 local VIEW_ALBUMS <const> = "albums"
@@ -43,6 +75,16 @@ local albumScrollOffset = 0
 local openedAlbum = nil
 local selectedTrackIndex = 1
 local trackScrollOffset = 0
+
+-- Cover thumbnails, loaded the first time a row is drawn and then kept. A 60 by
+-- 60 one bit image is well under a kilobyte, so holding one per album costs
+-- nothing even for a library far larger than anything that fits on the device,
+-- and loading them lazily means startup does not stall reading pictures for
+-- albums nobody has scrolled to yet.
+--
+-- An album with no usable thumbnail is stored as false rather than left absent,
+-- so a missing file is not looked for again on every single frame.
+local thumbnailsByAlbumIndex = {}
 
 
 -- Keep the selected row on screen by nudging the scroll offset only as far as
@@ -89,15 +131,26 @@ end
 -- Draw one row, highlighting it by filling the background black and drawing
 -- the text in white. On a 1-bit screen an inverted row is the clearest way to
 -- show selection.
-local function drawRow(rowTop, rowHeight, isSelected, drawContents)
+--
+-- bandTop is the top of the highlight itself rather than an offset into it, and
+-- the contents function is handed the band it has to sit inside. Everything
+-- inside then centres itself against measured font heights. The previous
+-- version drew text at a fixed offset from the top and let the leftover space
+-- collect underneath, which made the highlight look like it sat lower than the
+-- row it belonged to.
+--
+-- The selected state is passed through as well, because artwork has to opt out
+-- of the highlight. It works by forcing everything drawn to white, and doing
+-- that to a picture would flatten it into a solid white square.
+local function drawRow(bandTop, bandHeight, isSelected, drawContents)
     if isSelected then
-        graphics.fillRect(LIST_LEFT_EDGE - 2, rowTop - 2, LIST_WIDTH + 4, rowHeight)
+        graphics.fillRect(LIST_LEFT_EDGE - 2, bandTop, LIST_WIDTH + 4, bandHeight)
         graphics.setImageDrawMode(graphics.kDrawModeFillWhite)
     else
         graphics.setImageDrawMode(graphics.kDrawModeCopy)
     end
 
-    drawContents()
+    drawContents(isSelected)
 
     graphics.setImageDrawMode(graphics.kDrawModeCopy)
 end
@@ -123,6 +176,66 @@ end
 -- ---------------------------------------------------------------------------
 -- The album list
 -- ---------------------------------------------------------------------------
+
+-- Load an album's cover thumbnail, or return nil when there is nothing to show.
+local function thumbnailForAlbum(album, albumIndex)
+    local alreadyLoaded = thumbnailsByAlbumIndex[albumIndex]
+    if alreadyLoaded ~= nil then
+        -- false means it has already been looked for and is not there.
+        return alreadyLoaded or nil
+    end
+
+    local thumbnail = nil
+
+    local thumbnailPath = Library.thumbnailPathForAlbum(album)
+    if thumbnailPath and playdate.file.exists(thumbnailPath) then
+        thumbnail = graphics.image.new(thumbnailPath)
+    elseif album.art and playdate.file.exists(album.art) then
+        -- No thumbnail file, which means the library was ingested before they
+        -- existed. Shrinking the full artwork is a poor substitute, because the
+        -- dither pattern was generated for 140 pixels and resampling it turns
+        -- the picture into noise, but a rough cover reads better than an empty
+        -- square and this only happens once per album.
+        local fullSizeArtwork = graphics.image.new(album.art)
+        if fullSizeArtwork then
+            local fullSizeWidth = fullSizeArtwork:getSize()
+            if fullSizeWidth and fullSizeWidth > 0 then
+                thumbnail = fullSizeArtwork:scaledImage(ALBUM_COVER_SIZE / fullSizeWidth)
+            end
+        end
+    end
+
+    thumbnailsByAlbumIndex[albumIndex] = thumbnail or false
+    return thumbnail
+end
+
+
+-- Stand in for a missing cover. It is drawn as a white square with a black
+-- outline and a centre hole, echoing the 45 adapter the app is named for, and
+-- that combination reads on both a plain row and a highlighted one without
+-- needing to know which it is sitting on.
+local function drawCoverPlaceholder(left, top)
+    graphics.setColor(graphics.kColorWhite)
+    graphics.fillRect(left, top, ALBUM_COVER_SIZE, ALBUM_COVER_SIZE)
+
+    graphics.setColor(graphics.kColorBlack)
+    graphics.drawRect(left, top, ALBUM_COVER_SIZE, ALBUM_COVER_SIZE)
+
+    local centreX = left + ALBUM_COVER_SIZE / 2
+    local centreY = top + ALBUM_COVER_SIZE / 2
+    graphics.drawCircleAtPoint(centreX, centreY, 9)
+
+    -- Three spokes at 120 degrees apart, matching the three arm adapter shape.
+    for spokeNumber = 0, 2 do
+        local spokeAngle = math.rad(90 + spokeNumber * 120)
+        graphics.drawLine(
+            centreX + math.cos(spokeAngle) * 9,
+            centreY + math.sin(spokeAngle) * 9,
+            centreX + math.cos(spokeAngle) * 24,
+            centreY + math.sin(spokeAngle) * 24)
+    end
+end
+
 
 local function updateAlbumList()
     local albumCount = #Library.albums
@@ -163,10 +276,22 @@ local function drawAlbumList()
     local visibleRowCount
     albumScrollOffset, visibleRowCount =
         adjustScrollToShowSelection(selectedAlbumIndex, albumScrollOffset, ALBUM_ROW_HEIGHT,
-            albumCount, LIST_TOP_EDGE)
+            albumCount, ALBUM_LIST_TOP_EDGE)
 
-    graphics.drawText("*Albums*", LIST_LEFT_EDGE, 6)
-    graphics.drawText(string.format("%d", albumCount), 360, 6)
+    graphics.setFont(Typography.body)
+    graphics.drawText("Albums", LIST_LEFT_EDGE, 4)
+
+    local countText = string.format("%d", albumCount)
+    graphics.drawText(countText,
+        CONTENT_RIGHT_EDGE - Typography.body:getTextWidth(countText), 4)
+
+    -- The text column runs from the cover across to the scroll bar, and both
+    -- lines are trimmed to it so nothing draws over the edge of the screen.
+    local textWidth = CONTENT_RIGHT_EDGE - ALBUM_TEXT_LEFT
+
+    local titleHeight = Typography.large:getHeight()
+    local detailHeight = Typography.body:getHeight()
+    local textBlockHeight = titleHeight + ALBUM_TITLE_TO_DETAIL_GAP + detailHeight
 
     for visibleRow = 1, visibleRowCount do
         local albumIndex = albumScrollOffset + visibleRow
@@ -175,10 +300,31 @@ local function drawAlbumList()
             break
         end
 
-        local rowTop = LIST_TOP_EDGE + (visibleRow - 1) * ALBUM_ROW_HEIGHT
+        local bandTop = ALBUM_LIST_TOP_EDGE + (visibleRow - 1) * ALBUM_ROW_HEIGHT
 
-        drawRow(rowTop, ALBUM_ROW_HEIGHT, albumIndex == selectedAlbumIndex, function()
-            graphics.drawText(album.title, LIST_LEFT_EDGE + 2, rowTop)
+        drawRow(bandTop, ALBUM_ROW_HEIGHT, albumIndex == selectedAlbumIndex, function(isSelected)
+            -- Artwork is drawn in normal copy mode whether or not the row is
+            -- selected, then the white fill mode is put back for the text.
+            graphics.setImageDrawMode(graphics.kDrawModeCopy)
+
+            local coverTop = bandTop + (ALBUM_ROW_HEIGHT - ALBUM_COVER_SIZE) // 2
+            local thumbnail = thumbnailForAlbum(album, albumIndex)
+            if thumbnail then
+                thumbnail:draw(ALBUM_COVER_LEFT, coverTop)
+            else
+                drawCoverPlaceholder(ALBUM_COVER_LEFT, coverTop)
+            end
+
+            if isSelected then
+                graphics.setImageDrawMode(graphics.kDrawModeFillWhite)
+            end
+
+            local textTop = bandTop + (ALBUM_ROW_HEIGHT - textBlockHeight) // 2
+
+            graphics.setFont(Typography.large)
+            graphics.drawText(
+                Typography.truncateToWidth(Typography.large, album.title, textWidth),
+                ALBUM_TEXT_LEFT, textTop)
 
             local detailParts = { album.artist or "Unknown artist" }
             if album.year then
@@ -187,11 +333,15 @@ local function drawAlbumList()
             table.insert(detailParts, string.format("%d tracks", #album.tracks))
             table.insert(detailParts, Library.formatDuration(Library.albumDuration(album)))
 
-            graphics.drawText(table.concat(detailParts, "  ") , LIST_LEFT_EDGE + 2, rowTop + 16)
+            graphics.setFont(Typography.body)
+            graphics.drawText(
+                Typography.truncateToWidth(Typography.body,
+                    table.concat(detailParts, "  "), textWidth),
+                ALBUM_TEXT_LEFT, textTop + titleHeight + ALBUM_TITLE_TO_DETAIL_GAP)
         end)
     end
 
-    drawScrollIndicator(albumCount, visibleRowCount, albumScrollOffset, LIST_TOP_EDGE)
+    drawScrollIndicator(albumCount, visibleRowCount, albumScrollOffset, ALBUM_LIST_TOP_EDGE)
 end
 
 
@@ -237,8 +387,19 @@ local function drawTrackList()
         adjustScrollToShowSelection(selectedTrackIndex, trackScrollOffset, TRACK_ROW_HEIGHT,
             trackCount, TRACK_LIST_TOP_EDGE)
 
-    graphics.drawText("*" .. openedAlbum.title .. "*", LIST_LEFT_EDGE, 4)
-    graphics.drawText(openedAlbum.artist or "", LIST_LEFT_EDGE, 20)
+    local headerWidth = CONTENT_RIGHT_EDGE - LIST_LEFT_EDGE
+
+    graphics.setFont(Typography.large)
+    graphics.drawText(
+        Typography.truncateToWidth(Typography.large, openedAlbum.title, headerWidth),
+        LIST_LEFT_EDGE, 3)
+
+    graphics.setFont(Typography.body)
+    graphics.drawText(
+        Typography.truncateToWidth(Typography.body, openedAlbum.artist or "", headerWidth),
+        LIST_LEFT_EDGE, 28)
+
+    local titleWidth = CONTENT_RIGHT_EDGE - TRACK_DURATION_COLUMN_WIDTH - TRACK_TITLE_LEFT
 
     for visibleRow = 1, visibleRowCount do
         local trackIndex = trackScrollOffset + visibleRow
@@ -247,15 +408,24 @@ local function drawTrackList()
             break
         end
 
-        local rowTop = TRACK_LIST_TOP_EDGE + (visibleRow - 1) * TRACK_ROW_HEIGHT
-        if rowTop + TRACK_ROW_HEIGHT > SCREEN_HEIGHT then
+        local bandTop = TRACK_LIST_TOP_EDGE + (visibleRow - 1) * TRACK_ROW_HEIGHT
+        if bandTop + TRACK_ROW_HEIGHT > SCREEN_HEIGHT then
             break
         end
 
-        drawRow(rowTop, TRACK_ROW_HEIGHT, trackIndex == selectedTrackIndex, function()
-            graphics.drawText(string.format("%2d.", trackIndex), LIST_LEFT_EDGE + 2, rowTop)
-            graphics.drawText(track.title, LIST_LEFT_EDGE + 34, rowTop)
-            graphics.drawText(Library.formatDuration(track.duration), 340, rowTop)
+        drawRow(bandTop, TRACK_ROW_HEIGHT, trackIndex == selectedTrackIndex, function()
+            Typography.drawCentredInBand(Typography.body,
+                string.format("%2d.", trackIndex),
+                TRACK_NUMBER_LEFT, bandTop, TRACK_ROW_HEIGHT)
+
+            Typography.drawCentredInBand(Typography.body,
+                Typography.truncateToWidth(Typography.body, track.title, titleWidth),
+                TRACK_TITLE_LEFT, bandTop, TRACK_ROW_HEIGHT)
+
+            local durationText = Library.formatDuration(track.duration)
+            Typography.drawCentredInBand(Typography.body, durationText,
+                CONTENT_RIGHT_EDGE - Typography.body:getTextWidth(durationText),
+                bandTop, TRACK_ROW_HEIGHT)
         end)
     end
 

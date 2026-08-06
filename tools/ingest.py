@@ -31,6 +31,7 @@ Output folder layout, which this tool generates:
 
     music/<album slug>/<track slug>.pda
     art/<album slug>.pdi
+    art/<album slug>-thumb.pdi
     analysis/<album slug>/<track slug>.bin
     library.json
 """
@@ -47,7 +48,7 @@ import unicodedata
 from pathlib import Path
 
 import numpy
-from PIL import Image
+from PIL import Image, ImageOps
 
 # ---------------------------------------------------------------------------
 # Configuration
@@ -61,6 +62,12 @@ AUDIO_CHANNEL_COUNT = 2
 
 # Album artwork is displayed at 140 by 140 pixels on the now playing screen.
 ALBUM_ART_SIZE = 140
+
+# The album list shows a smaller cover beside each row. It is dithered
+# separately at its final size rather than being shrunk on the device, because a
+# Floyd Steinberg pattern is chosen for the resolution it was generated at and
+# resampling it turns the picture into noise.
+ALBUM_THUMBNAIL_SIZE = 60
 
 # Spectrum analysis. Twenty frames per second is plenty for a visualizer and
 # keeps the per-track analysis file to roughly 80 KB. Sixteen bands spread
@@ -486,23 +493,41 @@ def detect_beats(spectrum_history):
 def compute_waveform_envelope(mono_samples):
     """
     Reduce the whole track to WAVEFORM_POINT_COUNT amplitude values for the
-    scrub bar. Each point is the peak absolute amplitude of its slice, because
-    peak reads better than average at this scale. A track's loud chorus should
-    look loud.
+    scrub bar. Each point is the RMS amplitude of its slice.
+
+    This started out as the peak of each slice, on the reasoning that a track's
+    loud chorus should look loud. That turned out to be exactly wrong, and the
+    measurement is worth keeping because the failure was invisible until it was
+    counted. Two hundred points across a three minute track is roughly one point
+    per second, and the peak of any one second of a mastered record is very
+    nearly full scale almost all of the time. Across the whole 122 track test
+    library the median point sat at 228 out of 255 and 49 percent of all points
+    were at 230 or above, so the scrub bar was a solid block on most songs and
+    showed nothing about the shape of anything.
+
+    RMS measures how loud a slice actually is rather than how loud its single
+    loudest sample was, so quiet verses read as quiet and the structure of a
+    song is visible. It is normalised to the track's own loudest slice, so every
+    track uses the full height of the bar whatever it was mastered at.
+
+    A power curve applied on top of this was tried, to push the difference
+    between loud and quiet further apart. It made the busy tracks look better
+    and hollowed the quiet ones out into nothing, so there is no curve here.
     """
     slice_boundaries = numpy.linspace(0, len(mono_samples), WAVEFORM_POINT_COUNT + 1).astype(int)
-    peak_per_slice = numpy.zeros(WAVEFORM_POINT_COUNT, dtype=numpy.float32)
+    loudness_per_slice = numpy.zeros(WAVEFORM_POINT_COUNT, dtype=numpy.float64)
 
     for point_index in range(WAVEFORM_POINT_COUNT):
         slice_start = slice_boundaries[point_index]
         slice_end = max(slice_start + 1, slice_boundaries[point_index + 1])
-        peak_per_slice[point_index] = numpy.abs(mono_samples[slice_start:slice_end]).max()
+        slice_samples = mono_samples[slice_start:slice_end].astype(numpy.float64)
+        loudness_per_slice[point_index] = numpy.sqrt(numpy.mean(slice_samples ** 2))
 
-    loudest_peak = peak_per_slice.max()
-    if loudest_peak > 0:
-        peak_per_slice /= loudest_peak
+    loudest_slice = loudness_per_slice.max()
+    if loudest_slice > 0:
+        loudness_per_slice /= loudest_slice
 
-    return numpy.clip(peak_per_slice * 255.0, 0, 255).astype(numpy.uint8)
+    return numpy.clip(loudness_per_slice * 255.0, 0, 255).astype(numpy.uint8)
 
 
 def write_analysis_file(destination_path, band_energies, onset_frame_indices, waveform):
@@ -558,19 +583,15 @@ def write_analysis_file(destination_path, band_energies, onset_frame_indices, wa
 # Artwork
 # ---------------------------------------------------------------------------
 
-def dither_artwork_to_png(source_image, destination_png_path):
+def crop_to_square_and_resize(source_image, output_size):
     """
-    Convert album artwork to a 1-bit image the Playdate can display.
+    Turn any artwork into a square greyscale image at the size we want.
 
-    The image is cropped to a square, resized, and converted with Floyd
-    Steinberg dithering, which is what PIL's convert("1") does by default.
-    Dithered artwork on this screen reads like newsprint halftone, which looks
-    deliberate rather than like a compromise.
+    The crop is centred, so non-square artwork loses its edges rather than being
+    stretched out of shape.
     """
     image_in_greyscale = source_image.convert("L")
 
-    # Crop to a centred square before resizing, so non-square artwork is not
-    # stretched out of shape.
     width, height = image_in_greyscale.size
     square_side = min(width, height)
     left_edge = (width - square_side) // 2
@@ -579,9 +600,56 @@ def dither_artwork_to_png(source_image, destination_png_path):
         (left_edge, top_edge, left_edge + square_side, top_edge + square_side)
     )
 
-    resized = cropped_to_square.resize((ALBUM_ART_SIZE, ALBUM_ART_SIZE), Image.LANCZOS)
-    dithered = resized.convert("1")
-    dithered.save(destination_png_path)
+    return cropped_to_square.resize((output_size, output_size), Image.LANCZOS)
+
+
+def dither_artwork_to_png(source_image, destination_png_path):
+    """
+    Convert album artwork to the full size 1-bit image the now playing screen
+    shows.
+
+    Floyd Steinberg dithering, which is what PIL's convert("1") does by default.
+    At 140 pixels there are enough dots to carry a continuous tone, so dithered
+    artwork on this screen reads like newsprint halftone, which looks deliberate
+    rather than like a compromise.
+    """
+    resized = crop_to_square_and_resize(source_image, ALBUM_ART_SIZE)
+    resized.convert("1").save(destination_png_path)
+
+
+def reduce_artwork_to_thumbnail_png(source_image, destination_png_path):
+    """
+    Convert album artwork to the smaller 1-bit cover the album list shows.
+
+    How small the thumbnail is decides which method works, and the answer is not
+    the same at every size, which is worth recording because it is not obvious.
+
+    The album list originally showed five rows and had room for a 36 pixel
+    cover. At 36 pixels error diffusion has nowhere near enough dots to average
+    out, and every photographic cover came out as noise that read as texture
+    rather than as a picture. Four approaches were compared at six times
+    magnification, and the only readable one threw the tone away entirely:
+    stretch the contrast, blur slightly, then threshold hard at mid grey, which
+    reduces the cover to a silhouette.
+
+    The list now shows three rows and has room for 60 pixels, and at that size
+    the comparison comes out the other way round. There are enough dots for
+    dithering to carry real tone, faces are recognisable, and lettering on a
+    cover is legible as lettering. The silhouette method looks blobby beside it.
+
+    So this is a plain Floyd Steinberg dither, with the contrast stretched
+    first. The stretch is what separates it from the full size image: a cover
+    shot in a narrow range of greys has that range spread over the whole scale,
+    which matters far more at 60 pixels than at 140 because there are fewer dots
+    to spend on the difference between one dark grey and another.
+    """
+    resized = crop_to_square_and_resize(source_image, ALBUM_THUMBNAIL_SIZE)
+
+    # A small cutoff throws away the extreme two percent at each end, so one
+    # stray highlight or shadow does not set the scale for the whole picture.
+    stretched = ImageOps.autocontrast(resized, cutoff=2)
+
+    stretched.convert("1").save(destination_png_path)
 
 
 # ---------------------------------------------------------------------------
@@ -699,7 +767,22 @@ def main():
         default=Path.home() / "Developer" / "PlaydateSDK",
         help="Playdate SDK location, used to find pdc",
     )
+    argument_parser.add_argument(
+        "--only",
+        choices=["artwork", "analysis"],
+        default=None,
+        help=(
+            "Rebuild one part of the output and leave the rest alone. A full "
+            "run reconverts every track, which is a gigabyte of copying when "
+            "all that changed was the pictures or the spectrum data. Neither "
+            "mode rewrites library.json, because neither one gathers "
+            "everything a complete index needs."
+        ),
+    )
     arguments = argument_parser.parse_args()
+
+    rebuilding_artwork_only = arguments.only == "artwork"
+    rebuilding_analysis_only = arguments.only == "analysis"
 
     playdate_compiler = arguments.sdk / "bin" / "pdc"
     if not playdate_compiler.exists():
@@ -716,7 +799,11 @@ def main():
         return 1
 
     track_total = sum(len(album["audio_files"]) for album in albums)
-    print(f"Found {len(albums)} album(s), {track_total} track(s)", flush=True)
+    if arguments.only:
+        print(f"Found {len(albums)} album(s), {track_total} track(s). "
+              f"Rebuilding {arguments.only} only.", flush=True)
+    else:
+        print(f"Found {len(albums)} album(s), {track_total} track(s)", flush=True)
 
     # Everything that needs converting is gathered into one staging folder so
     # pdc can be run a single time over the whole batch. pdc flattens its
@@ -760,18 +847,43 @@ def main():
 
             # Artwork, converted once per album rather than once per track.
             album_art_path = None
-            artwork_image = find_album_artwork(album["folder"], ordered_audio_files[0])
+            artwork_image = None
+            if not rebuilding_analysis_only:
+                artwork_image = find_album_artwork(album["folder"], ordered_audio_files[0])
             if artwork_image is not None:
-                staged_art_name = f"art-{album_slug}.png"
-                dither_artwork_to_png(artwork_image, staging_source / staged_art_name)
+                # The full size image for the now playing screen.
+                dither_artwork_to_png(
+                    artwork_image,
+                    staging_source / f"art-{album_slug}.png",
+                )
                 album_art_path = f"art/{album_slug}.pdi"
                 conversion_plan.append({
                     "staged_name": f"art-{album_slug}.pdi",
                     "final_relative_path": album_art_path,
                 })
-                print(f"      artwork dithered to {ALBUM_ART_SIZE}x{ALBUM_ART_SIZE}")
-            else:
+
+                # The thumbnail for the album list. The app finds it by adding
+                # "-thumb" to the full image's path, so the index does not need
+                # to carry a second path for every album.
+                reduce_artwork_to_thumbnail_png(
+                    artwork_image,
+                    staging_source / f"art-{album_slug}-thumb.png",
+                )
+                conversion_plan.append({
+                    "staged_name": f"art-{album_slug}-thumb.pdi",
+                    "final_relative_path": f"art/{album_slug}-thumb.pdi",
+                })
+
+                print(f"      artwork dithered to {ALBUM_ART_SIZE}x{ALBUM_ART_SIZE} "
+                      f"and {ALBUM_THUMBNAIL_SIZE}x{ALBUM_THUMBNAIL_SIZE}")
+            elif not rebuilding_analysis_only:
                 print("      no artwork found")
+
+            # In artwork only mode nothing below this point is wanted: the
+            # audio, the analysis and the index are all left exactly as they
+            # are, and only the pictures are rebuilt.
+            if rebuilding_artwork_only:
+                continue
 
             processed_tracks = []
 
@@ -792,15 +904,18 @@ def main():
 
                 print(f"      {track_index:2d}. {track_title}", flush=True)
 
-                # Convert the audio into the staging folder for pdc.
-                staged_wav_name = f"audio-{staging_unique_slug}.wav"
-                convert_to_adpcm_wav(audio_file, staging_source / staged_wav_name)
-
+                # Convert the audio into the staging folder for pdc. An analysis
+                # only run skips this, which is the whole point of it: the
+                # conversion is nearly all of the time and all of the gigabyte,
+                # and the analysis is computed from the original file anyway.
                 final_audio_path = f"music/{album_slug}/{track_slug}.pda"
-                conversion_plan.append({
-                    "staged_name": f"audio-{staging_unique_slug}.pda",
-                    "final_relative_path": final_audio_path,
-                })
+                if not rebuilding_analysis_only:
+                    staged_wav_name = f"audio-{staging_unique_slug}.wav"
+                    convert_to_adpcm_wav(audio_file, staging_source / staged_wav_name)
+                    conversion_plan.append({
+                        "staged_name": f"audio-{staging_unique_slug}.pda",
+                        "final_relative_path": final_audio_path,
+                    })
 
                 # Analyse the original file rather than the ADPCM version, so
                 # the spectrum reflects the source rather than the compression.
@@ -816,13 +931,18 @@ def main():
                 analysis_destination.parent.mkdir(parents=True, exist_ok=True)
                 write_analysis_file(analysis_destination, band_energies, onset_frames, waveform)
 
-                processed_tracks.append({
-                    "title": track_title,
-                    "audio_path": final_audio_path,
-                    "analysis_path": analysis_relative_path,
-                    "duration": get_audio_duration_seconds(audio_file),
-                    "bpm": estimated_bpm,
-                })
+                # Reading the duration is a separate probe of the source file,
+                # and it is only ever used to write the index. An analysis only
+                # run does not write the index, so there is no reason to spend
+                # one probe per track finding out something nobody will read.
+                if not rebuilding_analysis_only:
+                    processed_tracks.append({
+                        "title": track_title,
+                        "audio_path": final_audio_path,
+                        "analysis_path": analysis_relative_path,
+                        "duration": get_audio_duration_seconds(audio_file),
+                        "bpm": estimated_bpm,
+                    })
 
             processed_albums.append({
                 "title": album_title,
@@ -833,31 +953,47 @@ def main():
             })
 
         # The index is plain JSON read by playdate.datastore, so it does not
-        # go through pdc at all.
-        write_library_index(arguments.output / "library.json", processed_albums)
+        # go through pdc at all. Neither partial rebuild may touch it, because
+        # neither one gathers all of the durations, analysis paths and artwork
+        # paths that a complete index needs.
+        if not arguments.only:
+            write_library_index(arguments.output / "library.json", processed_albums)
 
         # One pdc pass converts every staged WAV into .pda and every staged PNG
-        # into .pdi.
-        print("\n  Running pdc over the staged files...")
-        staging_output = staging_folder / "out.pdx"
-        run_command(
-            [str(playdate_compiler), str(staging_source), str(staging_output)],
-            "pdc conversion",
-        )
+        # into .pdi. An analysis only run stages nothing, since the analysis
+        # files are written directly, so there is nothing for pdc to do.
+        if conversion_plan:
+            print("\n  Running pdc over the staged files...")
+            staging_output = staging_folder / "out.pdx"
+            run_command(
+                [str(playdate_compiler), str(staging_source), str(staging_output)],
+                "pdc conversion",
+            )
 
-        # Move each converted file from pdc's flat output into its final home.
-        print("  Moving converted files into place...")
-        for planned_file in conversion_plan:
-            converted_source = staging_output / planned_file["staged_name"]
-            if not converted_source.exists():
-                print(f"    warning: pdc did not produce {planned_file['staged_name']}", file=sys.stderr)
-                continue
-            final_destination = arguments.output / planned_file["final_relative_path"]
-            final_destination.parent.mkdir(parents=True, exist_ok=True)
-            shutil.move(str(converted_source), str(final_destination))
+            # Move each converted file from pdc's flat output into its final home.
+            print("  Moving converted files into place...")
+            for planned_file in conversion_plan:
+                converted_source = staging_output / planned_file["staged_name"]
+                if not converted_source.exists():
+                    print(f"    warning: pdc did not produce {planned_file['staged_name']}",
+                          file=sys.stderr)
+                    continue
+                final_destination = arguments.output / planned_file["final_relative_path"]
+                final_destination.parent.mkdir(parents=True, exist_ok=True)
+                shutil.move(str(converted_source), str(final_destination))
 
     finally:
         shutil.rmtree(staging_folder, ignore_errors=True)
+
+    if rebuilding_artwork_only:
+        print(f"\nDone. {len(conversion_plan)} artwork file(s) rebuilt in "
+              f"{arguments.output / 'art'}")
+        return 0
+
+    if rebuilding_analysis_only:
+        print(f"\nDone. {track_total} analysis file(s) rebuilt in "
+              f"{arguments.output / 'analysis'}")
+        return 0
 
     # Report what was produced, and how much space it takes, since that is the
     # number people actually want to know.

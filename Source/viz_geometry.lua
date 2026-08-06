@@ -182,6 +182,23 @@ function ChladniFigures:draw(context)
     -- pairs is close enough at this size.
     graphics.setLineWidth(lineWidth)
 
+    -- Round caps, which is what makes this read as a line at all.
+    --
+    -- Every cell draws its own separate segment, and a segment is at most one
+    -- cell across, so at eight pixels long and up to eleven wide it is barely
+    -- longer than it is thick. With the default butt cap each one ends in a
+    -- square cut perpendicular to its own direction, and because neighbouring
+    -- segments meet at an angle those square ends leave a notch on the outside
+    -- of every bend. The result reads as a stack of little blocks rather than
+    -- as a stroke.
+    --
+    -- A round cap puts a half disc on each end, which fills the notch where the
+    -- next segment starts and lets consecutive segments merge into one
+    -- continuous curve. This is the cheap version of the filled circles that
+    -- were drawn at every segment end in an earlier attempt, which looked right
+    -- and cost too much.
+    graphics.setLineCapStyle(graphics.kLineCapStyleRound)
+
     for column = 0, columnCount - 1 do
         local leftBase = column * valuesPerColumn
         local rightBase = leftBase + valuesPerColumn
@@ -262,6 +279,7 @@ function ChladniFigures:draw(context)
     end
 
     graphics.setLineWidth(1)
+    graphics.setLineCapStyle(graphics.kLineCapStyleButt)
 end
 
 Visualizers.register(ChladniFigures)

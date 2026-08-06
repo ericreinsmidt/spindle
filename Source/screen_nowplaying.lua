@@ -12,13 +12,13 @@
 import "library"
 import "player"
 import "analysis"
+import "typography"
 
 ScreenNowPlaying = {}
 
 local graphics <const> = playdate.graphics
 
 local SCREEN_WIDTH <const> = 400
-local SCREEN_HEIGHT <const> = 240
 
 -- Artwork sits hard against the top left, because there is nothing that wants
 -- to live above it and the screen is small enough that any wasted band at the
@@ -29,32 +29,47 @@ local ARTWORK_TOP <const> = 6
 local ARTWORK_BOTTOM <const> = ARTWORK_TOP + ARTWORK_SIZE
 
 -- The right hand column holds the track details, stacked from the top so it
--- lines up with the artwork beside it.
-local TEXT_LEFT <const> = 158
-local TITLE_Y <const> = 6
-local ARTIST_Y <const> = 30
-local ALBUM_Y <const> = 50
+-- lines up with the artwork beside it. The title is in the large font and
+-- everything under it is in the body font, which is the same arrangement the
+-- album list uses.
+local TEXT_LEFT <const> = 154
+local TEXT_RIGHT <const> = 394
+local TITLE_Y <const> = 8
+local ARTIST_Y <const> = 34
+local ALBUM_Y <const> = 54
 local TRACK_COUNTER_Y <const> = 74
-local PLAYBACK_STATE_Y <const> = 94
 
--- The compact spectrum fills the remaining space in the right column and is
--- bottom aligned with the artwork, so the two form a single block.
+-- The compact spectrum fills what is left of the right column and is bottom
+-- aligned with the artwork, so the two form a single block. It gets the space
+-- that the playback state line used to occupy here, which has moved down to a
+-- row of its own, and it is half again as tall as a result.
 local SPECTRUM_LEFT <const> = TEXT_LEFT
-local SPECTRUM_RIGHT <const> = 394
+local SPECTRUM_RIGHT <const> = TEXT_RIGHT
 local SPECTRUM_BOTTOM_Y <const> = ARTWORK_BOTTOM
-local SPECTRUM_MAXIMUM_HEIGHT <const> = 30
+local SPECTRUM_MAXIMUM_HEIGHT <const> = 46
 
--- The waveform scrub bar spans the full width below both columns.
+-- The waveform scrub bar spans the full width below both columns. It is
+-- shorter than it used to be, which it can afford now that it shows the shape
+-- of a song rather than a solid block. The old version drew the peak amplitude
+-- of each slice, and the peak of any given second of a mastered record is very
+-- nearly full scale, so it was pinned to the top for most of most songs. It now
+-- draws RMS loudness, which actually varies.
 local WAVEFORM_LEFT <const> = 6
 local WAVEFORM_WIDTH <const> = 388
-local WAVEFORM_CENTRE_Y <const> = 180
-local WAVEFORM_HALF_HEIGHT <const> = 22
+local WAVEFORM_CENTRE_Y <const> = 170
+local WAVEFORM_HALF_HEIGHT <const> = 16
 
 -- The playhead marker extends a little beyond the waveform so it stays visible
 -- during a quiet passage where the waveform itself is only a few pixels tall.
 local PLAYHEAD_OVERHANG <const> = 6
 
-local TIME_ROW_Y <const> = 214
+-- The playback state gets a full width row under the waveform. It used to sit
+-- in the right hand column, where "paused   shuffle albums   repeat album" ran
+-- off the edge of the screen and repeat needed a second line of its own. Across
+-- the full width it fits on one line with room to spare.
+local PLAYBACK_STATE_Y <const> = 194
+
+local TIME_ROW_Y <const> = 216
 
 -- Album artwork is cached so that stepping between tracks on the same record
 -- does not reload the same image on every frame.
@@ -65,6 +80,18 @@ local cachedArtworkPath = nil
 -- visible without permanently occupying screen space.
 local transientMessage = nil
 local transientMessageExpiresAtMilliseconds = 0
+
+-- Down carries two controls: a short press cycles the play mode, and holding it
+-- cycles the repeat mode. They share a button because this screen has no free
+-- ones left, and the obvious alternative was the system menu, which stops the
+-- audio the moment it opens. Putting a playback control behind something that
+-- silences playback is not a trade worth making for a setting you might change
+-- three times a record.
+local REPEAT_HOLD_DURATION_MILLISECONDS <const> = 400
+
+-- When down went down, and whether the hold has already fired for this press.
+local downPressedAtMilliseconds = nil
+local downHoldAlreadyFired = false
 
 
 local function showTransientMessage(message)
@@ -202,6 +229,11 @@ end
 
 
 function ScreenNowPlaying.enter()
+    -- Clear the hold tracking, in case the screen was left while down was still
+    -- held. Otherwise the release would land here on the way back in and cycle
+    -- the play mode nobody asked to change.
+    downPressedAtMilliseconds = nil
+    downHoldAlreadyFired = false
 end
 
 
@@ -226,9 +258,30 @@ function ScreenNowPlaying.update()
         Player.skipToNext()
     end
 
+    -- Down cycles the play mode on a short press and the repeat mode on a hold.
+    -- The play mode can only change on release, because until the button comes
+    -- back up there is no way to tell which of the two was meant.
     if playdate.buttonJustPressed(playdate.kButtonDown) then
-        Player.cyclePlayMode()
-        showTransientMessage(Player.playModeName())
+        downPressedAtMilliseconds = playdate.getCurrentTimeMilliseconds()
+        downHoldAlreadyFired = false
+    end
+
+    if downPressedAtMilliseconds
+        and not downHoldAlreadyFired
+        and playdate.buttonIsPressed(playdate.kButtonDown)
+        and playdate.getCurrentTimeMilliseconds() - downPressedAtMilliseconds
+            >= REPEAT_HOLD_DURATION_MILLISECONDS then
+        Player.cycleRepeatMode()
+        showTransientMessage(Player.repeatModeName())
+        downHoldAlreadyFired = true
+    end
+
+    if playdate.buttonJustReleased(playdate.kButtonDown) then
+        if not downHoldAlreadyFired then
+            Player.cyclePlayMode()
+            showTransientMessage(Player.playModeName())
+        end
+        downPressedAtMilliseconds = nil
     end
 
     if playdate.buttonJustPressed(playdate.kButtonUp) then
@@ -246,6 +299,7 @@ end
 function ScreenNowPlaying.draw()
     local entry = Player.currentEntry()
     if not entry then
+        graphics.setFont(Typography.body)
         graphics.drawText("Nothing playing", 140, 110)
         return
     end
@@ -260,21 +314,31 @@ function ScreenNowPlaying.draw()
         drawArtworkPlaceholder()
     end
 
-    graphics.drawText("*" .. track.title .. "*", TEXT_LEFT, TITLE_Y)
-    graphics.drawText(album.artist or "", TEXT_LEFT, ARTIST_Y)
+    -- Everything in the right hand column is trimmed to the column, because a
+    -- long title would otherwise run off the right of the screen.
+    local columnWidth = TEXT_RIGHT - TEXT_LEFT
+
+    graphics.setFont(Typography.large)
+    graphics.drawText(
+        Typography.truncateToWidth(Typography.large, track.title, columnWidth),
+        TEXT_LEFT, TITLE_Y)
+
+    graphics.setFont(Typography.body)
+    graphics.drawText(
+        Typography.truncateToWidth(Typography.body, album.artist or "", columnWidth),
+        TEXT_LEFT, ARTIST_Y)
 
     local albumLine = album.title or ""
     if album.year then
         albumLine = albumLine .. "  " .. album.year
     end
-    graphics.drawText(albumLine, TEXT_LEFT, ALBUM_Y)
+    graphics.drawText(
+        Typography.truncateToWidth(Typography.body, albumLine, columnWidth),
+        TEXT_LEFT, ALBUM_Y)
 
     graphics.drawText(
         string.format("track %d of %d", entry.trackIndex or 1, #album.tracks),
         TEXT_LEFT, TRACK_COUNTER_Y)
-
-    local stateText = Player.isPlaying() and "playing" or "paused"
-    graphics.drawText(stateText .. "   " .. Player.playModeName(), TEXT_LEFT, PLAYBACK_STATE_Y)
 
     local position = Player.position()
     local length = Player.length()
@@ -283,23 +347,35 @@ function ScreenNowPlaying.draw()
     drawSpectrumStrip(analysis, position)
     drawWaveformScrubBar(analysis, position, length)
 
+    -- The playback state across the full width. Repeat off is the normal case
+    -- and does not need saying, so it only joins the line when something is
+    -- actually repeating.
+    local stateParts = {
+        Player.isPlaying() and "playing" or "paused",
+        Player.playModeName(),
+    }
+    if Player.repeatMode ~= Player.REPEAT_OFF then
+        table.insert(stateParts, Player.repeatModeName())
+    end
+    graphics.drawText(table.concat(stateParts, "   "), WAVEFORM_LEFT, PLAYBACK_STATE_Y)
+
     -- Elapsed on the left, total on the right. The total is right aligned by
-    -- measuring it rather than guessing a character width, because the default
-    -- font is variable width.
+    -- measuring it rather than guessing a character width, because the font is
+    -- variable width.
     graphics.drawText(Library.formatDuration(position), WAVEFORM_LEFT, TIME_ROW_Y)
 
     local totalDurationText = Library.formatDuration(length)
-    local totalDurationWidth = graphics.getTextSize(totalDurationText)
     graphics.drawText(totalDurationText,
-        SCREEN_WIDTH - WAVEFORM_LEFT - totalDurationWidth, TIME_ROW_Y)
+        SCREEN_WIDTH - WAVEFORM_LEFT - Typography.body:getTextWidth(totalDurationText),
+        TIME_ROW_Y)
 
     -- The transient message sits between the two times, where nothing else
     -- competes for space.
     if transientMessage then
         if playdate.getCurrentTimeMilliseconds() < transientMessageExpiresAtMilliseconds then
-            local messageWidth = graphics.getTextSize(transientMessage)
             graphics.drawText(transientMessage,
-                (SCREEN_WIDTH - messageWidth) / 2, TIME_ROW_Y)
+                (SCREEN_WIDTH - Typography.body:getTextWidth(transientMessage)) / 2,
+                TIME_ROW_Y)
         else
             transientMessage = nil
         end

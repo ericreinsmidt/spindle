@@ -70,10 +70,29 @@ files cannot hold ID3 tags.
 ```
 /Data/com.reinsmidt.spindle/
   music/<album>/<track>.pda       converted audio
-  art/<album>.pdi                 album art, dithered to 1-bit
+  art/<album>.pdi                 album art, dithered to 1-bit at 140 px
+  art/<album>-thumb.pdi           the same art at 36 px for the album list
   analysis/<album>/<track>.bin    spectrum, onsets and waveform
   library.json                    the index, read once at startup
+  session.json                    what was playing, written by the app
 ```
+
+The thumbnail path is not in the index. The app derives it by adding `-thumb`
+to the full image's path, which means an existing library gains thumbnails by
+rebuilding the artwork alone rather than by being ingested again from scratch.
+`ingest.py --artwork-only` does exactly that, and leaves the audio, the analysis
+files and the index untouched.
+
+The two sizes are produced by different methods, which matters more than it
+sounds. The full size image is Floyd Steinberg dithered, because at 140 pixels
+there are enough dots to carry continuous tone. Thirty six pixels is nowhere
+near enough, and dithering a cover at that size produces noise that reads as
+texture rather than as a picture. The thumbnail instead has its contrast
+stretched, is blurred very slightly to throw away detail that would break into
+speckle, and is then thresholded hard at mid grey. The result is a silhouette,
+which is what actually identifies a record at that size. Four approaches were
+compared side by side at six times magnification before settling on this one,
+and the deciding test was whether lettering on a cover survived.
 
 Startup reads a single file rather than scanning hundreds of small ones on
 storage we have measured as slow. To change something, edit an m3u and re-run
@@ -124,8 +143,15 @@ originally treated as the main drawback of ADPCM is what makes this possible.
 ## Library
 
 The album is the primary object. The landing screen is a list of albums that
-scrolls with the crank. Artists act as a filter above that list, and tracks live
-inside each album.
+scrolls with the crank, each row showing a cover thumbnail beside the title,
+artist, year, track count and running time. Artists act as a filter above that
+list, and tracks live inside each album.
+
+Thumbnails are loaded the first time a row is drawn and then kept, so scrolling
+does not reload the same picture every frame and startup does not stall reading
+covers for albums nobody has scrolled to. A 36 by 36 one bit image is a few
+hundred bytes, so holding one per album costs nothing at any library size that
+fits on the device.
 
 Two ways to collect music beyond a single album:
 
@@ -142,7 +168,7 @@ button equivalent, because plenty of people leave the crank docked all the time.
 | Screen | Crank does | Buttons do |
 |---|---|---|
 | Library | Scrolls the list | Up and down move, A opens, B goes back |
-| Now playing | Scrubs the track | Left and right change track, up opens the fullscreen visualizer, down cycles play modes |
+| Now playing | Scrubs the track | Left and right change track, up opens the fullscreen visualizer, down cycles play modes, holding down cycles repeat |
 | Fullscreen visualizer | Drives the visualizer | Left and right seek by 10 seconds, down returns |
 
 To unlock from pocket mode, hold A and B together for two seconds while a
@@ -189,14 +215,38 @@ Pressing down cycles the play modes in this order:
 Shuffle albums is the mode no other Playdate player offers, and it is the one
 that suits an album-first library.
 
-Repeat is a separate setting in the menu with three states: off, album, track.
+Repeat is a separate axis with three states: off, album, track. Shuffling
+decides what order things come in and repeating decides what happens when the
+list runs out, so every combination of the two is meaningful.
 
-On launch, Spindle always restores the track, position, and queue. Whether it
-starts playing depends on how the previous session ended. If the device locked
-or the system menu killed the audio, that was not a deliberate choice, so
-playback resumes. If you backed out of the app yourself, it comes back paused.
-The lifecycle callbacks `deviceWillLock` and `gameWillPause` make the two cases
-distinguishable.
+It is bound to holding down rather than to the system menu, which is where this
+design originally put it. Opening the system menu stops the audio, and putting a
+playback control behind something that silences playback is not a trade worth
+making. Now playing has no free buttons left, so down carries both: a short
+press cycles the play mode, and holding it for 400 milliseconds cycles repeat.
+The play mode can only change on release, because until the button comes back up
+there is no way to tell which of the two was meant.
+
+Repeat track means "play this again when it ends" and not "disable the next
+button", so pressing next still moves on. That distinction is the only thing the
+advance logic needs to know about who asked for the next track.
+
+On launch, Spindle restores the album, the track, the position, the play mode
+and the repeat mode. Whether it starts playing depends on how the previous
+session ended. If the device locked, the system menu killed the audio, or the
+battery gave out, that was not a deliberate choice, so playback resumes. If you
+backed out of the app yourself, it comes back paused.
+
+`gameWillTerminate` is what separates the two. It fires on a deliberate exit and
+does not fire when the device dies underneath the app, so the session file is
+written marked as an interruption all the way through playback and only
+rewritten as clean on the way out. The position is rewritten every thirty
+seconds while music plays, so a flat battery costs at most half a minute rather
+than the whole track.
+
+The saved track index is checked against the file path before it is trusted,
+because re-ingesting with different tags can reorder a record and the index on
+its own would then restore the wrong song.
 
 ## Visualizers
 
@@ -225,7 +275,7 @@ The first batch:
 
 | Visualizer | What it does |
 |---|---|
-| Chladni figures | The nodal patterns of a vibrating plate, traced as an interpolated contour rather than filled cells. Mode numbers follow the spectrum continuously with a slow drift on top. Drawn as a heavy uniform line, seven pixels growing to eleven on loud passages |
+| Chladni figures | The nodal patterns of a vibrating plate, traced as an interpolated contour rather than filled cells. Mode numbers follow the spectrum continuously with a slow drift on top. Drawn as a heavy uniform line with round caps, seven pixels growing to eleven on loud passages |
 | Fourier epicycles | Circles rotating on circles, each radius taken from a spectrum band. The drawing mechanism and the audio analysis are the same operation |
 | Harmonograph | Two damped pendulums tracing a curve. Frequencies come from spectral peaks and the drawing restarts on a beat |
 | Cellular automaton | Rule 30 or 110 scrolling upward, each new row seeded by the current spectrum. Pure 1-bit with no dithering needed |
@@ -261,18 +311,18 @@ FLAC, M4A and the rest, honours an optional _album.m3u sidecar for overrides
 and track order, and finds artwork either beside the audio or embedded in it.
 Roughly one second per track.
 
-The app. Album list and track list, scrolling with the crank or the buttons.
-Now playing with artwork, a compact spectrum, and the precomputed waveform as
-the scrub bar with a playhead marker. Crank scrubbing. Gapless transitions.
-Three play modes. Ten visualizers behind a plugin interface, reached with up
-from now playing.
+The app. Album list with cover thumbnails and track list, scrolling with the
+crank or the buttons. Now playing with artwork, a compact spectrum, and the
+precomputed waveform as the scrub bar with a playhead marker. Crank scrubbing.
+Gapless transitions. Three play modes and three repeat modes. Resume on launch.
+Ten visualizers behind a plugin interface, reached with up from now playing.
 
 Launcher art, generated by tools/make_launcher_art.py from a photograph of a
 45 RPM adapter. Sixty frames covering the 120 degrees of the shape's rotational
 symmetry, turning clockwise about the shape's centroid.
 
-Not built yet: the queue, repeat modes, resume on launch, pocket mode and its
-lock screen, album artwork in the album list, and playlist support in ingest.
+Not built yet: the queue, pocket mode and its lock screen, and playlist support
+in ingest.
 
 Performance. Most visualizers run at 25 to 30 fps against a 30 fps target.
 Chladni originally ran at 6, because two sine lookups sat inside the inner loop
@@ -286,3 +336,12 @@ mode: whether `channel:getDryLevelSignal()` combined with `signal:getValue()`
 actually returns a usable amplitude reading. The precomputed visualizers do not
 need it, since they have spectrum data to work from. It matters only for
 visualizers that run without any analysis data.
+
+The visualizer timing report was previously listed here as unverified, because
+`visualizer-timings.txt` never appeared in the data folder. Writing to that
+folder with `playdate.file.open` has since been shown to work, by using the same
+call to write a trace file during the session testing, so the mechanism itself is
+sound. The report now records what happened on each attempt and the timing
+overlay shows it, including the size of the file it wrote, so a failure is
+visible on screen instead of being something you only discover afterwards by
+going to look for a file that is not there.

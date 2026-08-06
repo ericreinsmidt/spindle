@@ -4,6 +4,9 @@
 # macOS clutter.
 .DS_Store
 
+# Python leaves these behind whenever ingest.py is imported rather than run.
+__pycache__/
+
 # The generated library is not tracked. It is hundreds of megabytes of
 # converted audio produced by tools/ingest.py from your own music, and it does
 # not belong in version control. Regenerate it with:

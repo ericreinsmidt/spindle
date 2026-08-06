@@ -31,6 +31,7 @@ Source/            the Lua app
   library.lua        loads the index, builds playback lists
   analysis.lua       reads the binary spectrum and beat files
   player.lua         playback, seeking, gapless transitions
+  session.lua        remembers what was playing across launches
   screen_*.lua       the three screens
   visualizers.lua    plugin registry and the per frame context
   viz_*.lua          the visualizers themselves
@@ -75,6 +76,17 @@ music/
 Copy the result into `/Data/com.reinsmidt.spindle/` on the device.
 
 Ingest needs `ffmpeg` on the path, plus `numpy`, `Pillow` and `mutagen`.
+
+To rebuild only the album artwork, leaving the converted audio, the analysis
+files and the index alone:
+
+```
+python3 tools/ingest.py --artwork-only <music folder> <output folder>
+```
+
+A full run reconverts every track, which is an hour of work and a gigabyte of
+copying when all that changed was the pictures. After an artwork only run,
+copying `art/` to the device is enough.
 
 ## Regenerating the launcher art
 

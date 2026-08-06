@@ -1,0 +1,10 @@
+Chladni variants, measured on device
+60 frames each, budget is 33ms at 30Hz
+
+1 uniform 7,  cell  8               41.53 ms/frame
+2 gradient .22 10-26, cell 10 NOW   41.50 ms/frame
+3 gradient .22 10-26, cell 14       28.45 ms/frame
+4 gradient .22 10-26, cell 18       22.10 ms/frame
+5 gradient .19  8-22, cell 14       27.22 ms/frame
+6 gradient .19  8-22, cell 18       21.12 ms/frame
+7 gradient .16  8-18, cell 14       26.22 ms/frame

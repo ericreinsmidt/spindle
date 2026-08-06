@@ -101,7 +101,13 @@ end
 -- where an onset was detected. crankDelta is degrees moved since the last
 -- frame, which is what makes a visualizer something you can play with rather
 -- than only watch.
-function Visualizers.buildContext(analysis, positionInSeconds, lengthInSeconds, frameNumber)
+--
+-- The crank movement is passed in rather than read here, because the screen has
+-- to decide where it goes. Most visualizers get it as something to play with,
+-- but one of them asks for it to be spent on scrubbing the track instead, and
+-- only the screen is in a position to honour that.
+function Visualizers.buildContext(analysis, positionInSeconds, lengthInSeconds,
+                                  frameNumber, crankDeltaInDegrees)
     local bands = Analysis.bandsAtPosition(analysis, positionInSeconds)
 
     -- A visualizer should never have to check whether analysis exists, so a
@@ -127,7 +133,7 @@ function Visualizers.buildContext(analysis, positionInSeconds, lengthInSeconds, 
         bandCount = #bands,
         energy = (bandTotal / #bands) / 255,
         beat = Analysis.isOnBeat(analysis, positionInSeconds),
-        crankDelta = playdate.getCrankChange(),
+        crankDelta = crankDeltaInDegrees or 0,
         position = positionInSeconds,
         length = lengthInSeconds,
         frame = frameNumber,

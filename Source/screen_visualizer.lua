@@ -8,10 +8,16 @@
 -- makes this worth building.
 --
 -- Controls follow the design:
---   crank         drives whichever visualizer is showing
+--   crank         drives whichever visualizer is showing, except on Scope,
+--                 where it scrubs the track
 --   left, right   seek by ten seconds, so you are never stranded here
 --   up            switch to the next visualizer
 --   down, B       back to now playing
+--
+-- Scope is the exception because it is the one visualizer that shows where you
+-- are in a song rather than only what it sounds like right now. It asks for the
+-- crank by declaring scrubsWithCrank, and this screen honours that, so no
+-- visualizer has to know that playback exists.
 
 import "visualizers"
 import "player"
@@ -47,6 +53,11 @@ local NAME_OVERLAY_DURATION_MILLISECONDS <const> = 1400
 
 local selectedVisualizerIndex = 1
 local frameNumber = 0
+
+-- Crank movement for this frame, worked out in update and handed to the
+-- visualizer in draw. It is zero on a visualizer that spent its crank on
+-- scrubbing instead.
+local crankDeltaThisFrame = 0
 
 local nameOverlayExpiresAtMilliseconds = 0
 
@@ -190,6 +201,28 @@ end
 
 
 function ScreenVisualizer.update()
+    -- Decide where this frame's crank movement goes before anything else uses
+    -- it. Most visualizers get it to play with, but one can ask for it to be
+    -- spent on scrubbing the track instead by declaring scrubsWithCrank, and
+    -- the screen is the only place that can honour that without a visualizer
+    -- having to know that playback exists.
+    --
+    -- The threshold matches the now playing screen, so resting a hand on the
+    -- crank does not creep the playhead along.
+    local crankChange = playdate.getCrankChange()
+    local currentVisualizer = Visualizers.get(selectedVisualizerIndex)
+
+    if currentVisualizer and currentVisualizer.scrubsWithCrank then
+        if math.abs(crankChange) > 0.5 then
+            Player.addCrankScrub(crankChange)
+        end
+        -- Spent. The visualizer sees no movement, so nothing can react to the
+        -- same turn twice.
+        crankDeltaThisFrame = 0
+    else
+        crankDeltaThisFrame = crankChange
+    end
+
     -- Keep the report up to date while the overlay is being watched, so the
     -- status line in it reflects a write that just happened rather than one
     -- from the last time the screen was left.
@@ -238,7 +271,8 @@ function ScreenVisualizer.draw()
         Player.currentAnalysis(),
         Player.position(),
         Player.length(),
-        frameNumber
+        frameNumber,
+        crankDeltaThisFrame
     )
 
     if visualizerErrorMessage then

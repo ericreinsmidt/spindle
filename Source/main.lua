@@ -92,6 +92,21 @@ local function setUpSystemMenu()
             ScreenVisualizer.writeTimingReport()
         end
     end)
+
+    -- White on black for the whole app.
+    --
+    -- This happens at the display level rather than in any drawing code, so
+    -- nothing has to know about it and it costs nothing. The alternative would
+    -- have been clearing to black and setting every draw colour to white, which
+    -- means touching every screen and every visualizer for a setting that can be
+    -- had for free.
+    --
+    -- It is a checkbox rather than a decision because a reflective screen with
+    -- no backlight behaves quite differently inverted depending on the light you
+    -- are sitting in, so it is worth being able to flip it and look.
+    systemMenu:addCheckmarkMenuItem("invert", false, function(shouldInvert)
+        playdate.display.setInverted(shouldInvert)
+    end)
 end
 
 

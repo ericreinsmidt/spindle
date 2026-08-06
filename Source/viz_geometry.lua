@@ -29,17 +29,91 @@ local ChladniFigures = {
     -- The grid the contour is traced over. It does not need to be fine enough
     -- to look smooth, because the crossing points are interpolated between grid
     -- points, so the curve is smooth regardless. It only needs to be fine
-    -- enough to follow the shape without cutting corners. Eight pixels across a
-    -- 400 by 240 screen is 50 by 30, which is 1581 evaluations per frame
-    -- against the 3840 the filled version needed.
-    cellSize = 8,
+    -- enough to follow the shape without cutting corners.
+    --
+    -- Fourteen pixels across a 400 by 240 screen is 28 by 17, which is 522
+    -- evaluations per frame, against 3840 for the filled version this replaced.
+    --
+    -- Fourteen rather than ten is the single biggest thing keeping this inside
+    -- the frame budget, and the reason is overdraw rather than arithmetic. Each
+    -- cell draws its own round capped segment, and a cap sticks out half a line
+    -- width past each end. At widths up to 26 with cells only 10 apart, every
+    -- segment's caps reach well past where the next segment begins, so most of
+    -- that ink is the same pixels being filled two or three times over.
+    --
+    -- Measured on device, 60 frames per variant, at identical widths:
+    --
+    --     cell 10   41.5 ms      cell 14   28.4 ms      cell 18   22.1 ms
+    --
+    -- Narrowing the lines instead barely helps, which is what says the cost is
+    -- overdraw and not ink: at cell 14, dropping the widths from 10 to 26 down
+    -- to 8 to 22 saved only 4 percent, and down to 8 to 18 only 8 percent, for
+    -- a figure that looks much lighter. Eighteen was measured and rejected on
+    -- looks: it polygonises tight curves and makes the width estimate noisy
+    -- enough to leave isolated fat spots along a run.
+    cellSize = 14,
 
-    -- How thick the nodal lines are drawn, with loudness adding to the base.
-    -- One weight for the whole figure rather than per cell: varying thickness
-    -- with the local gradient was tried, to fatten the figure where nodal lines
-    -- converge, but it cost frames and looked worse than a uniform heavy line.
-    baseLineWidth = 7,
-    additionalLineWidthWhenLoud = 4,
+    -- How thick the nodal lines are drawn.
+    --
+    -- The width comes from the local steepness of the plate rather than being
+    -- one weight for the whole figure, because that is what gives a Chladni
+    -- pattern its character. On a real plate the still region is wide where the
+    -- surface is flat and narrow where it is steep, and nodal lines converge
+    -- exactly where the surface flattens, so the figure swells where lines meet
+    -- and stays fine elsewhere.
+    --
+    -- The very first version of this visualizer had that property by accident.
+    -- It filled any cell where the plate value was near zero, and thresholding a
+    -- field like that produces a band whose width is set by the gradient without
+    -- anyone asking for it. Tracing the contour threw it away, because a contour
+    -- is a curve with no width at all, and the width had to be put back by hand.
+    --
+    -- Putting it back was tried once before and reverted, but that attempt was
+    -- paying for two things at once: this, and a filled circle at every segment
+    -- end to hide the notching between segments. Round caps now do the second
+    -- job for nothing, so this is a different proposition.
+    --
+    -- The threshold is what the width is derived from, in the units of the plate
+    -- function, and loudness widens it so the whole figure thickens with the
+    -- music.
+    nodalThreshold = 0.30,
+    additionalThresholdWhenLoud = 0.10,
+
+    -- The bounds on the width matter more than they look, and how they are
+    -- applied matters as much as what they are.
+    --
+    -- Width goes as one over the gradient, so a region where the plate is
+    -- genuinely flat asks for an unbounded width. The very first version had no
+    -- limit at all, and at some mode numbers an entire corner of the screen
+    -- filled in solid and the line stopped being a line.
+    --
+    -- Clamping that with a hard minimum and maximum was the obvious fix and it
+    -- was wrong. One over the gradient is very steep near zero, so two
+    -- neighbouring cells with almost the same gradient can land far apart in
+    -- width, and the clamp then chops that off abruptly. The result was
+    -- occasional single cells fatter than everything around them, which broke
+    -- the line into lumps.
+    --
+    -- These are used as the ends of a smooth curve instead:
+    --
+    --     width = minimum + range / (1 + range * gradient / (2 * threshold))
+    --
+    -- which approaches the maximum as the gradient goes to zero and the minimum
+    -- as it grows, is smooth everywhere in between, and behaves as one over the
+    -- gradient through the middle where that is what is wanted. The bounds are
+    -- structural rather than enforced, so nothing has to be clamped and the flat
+    -- region case needs no special handling.
+    --
+    -- The gradient is also averaged with the four neighbouring cells before the
+    -- width is worked out. Without it the width still steps from one segment to
+    -- the next, and because each segment is drawn with round caps of its own
+    -- radius, those steps show up as a slightly scalloped edge along what should
+    -- be a clean stroke. Averaging first is what makes the outline flow.
+    --
+    -- It is done on the squared gradient so the whole thing costs one square
+    -- root rather than five.
+    minimumLineWidth = 10,
+    maximumLineWidth = 34,
 
     -- The mode numbers move toward their targets rather than jumping, so the
     -- pattern morphs smoothly instead of flickering between shapes.
@@ -63,6 +137,7 @@ function ChladniFigures:reset()
     self.sineMofY = {}
     self.sineNofY = {}
     self.plateValues = {}
+    self.squaredSlopes = {}
 end
 
 function ChladniFigures:draw(context)
@@ -107,14 +182,12 @@ function ChladniFigures:draw(context)
     -- pattern each axis starts, which is a cheap way to make it interactive.
     self.phaseOffset = (self.phaseOffset or 0) + context.crankDelta / 360
 
-    -- Louder passages thicken the nodal lines, so the figure still responds to
-    -- the music. When the contour was drawn as filled cells this was a
-    -- threshold on how near zero counted as being on the line; now that it is a
-    -- traced curve, line width is the direct equivalent.
-    -- Rounded to whole pixels, because a fractional width on a 1-bit screen
-    -- just moves where the edge lands rather than producing a finer line.
-    local lineWidth = self.baseLineWidth
-        + math.floor(mid * self.additionalLineWidthWhenLoud)
+    -- Louder passages widen the band that counts as still, so the whole figure
+    -- thickens with the music rather than staying a constant weight.
+    local nodalThreshold = self.nodalThreshold + mid * self.additionalThresholdWhenLoud
+
+    local minimumLineWidth = self.minimumLineWidth
+    local lineWidthRange = self.maximumLineWidth - minimumLineWidth
 
     local cellSize = self.cellSize
     local columnCount = context.width // cellSize
@@ -166,6 +239,36 @@ function ChladniFigures:draw(context)
         end
     end
 
+    -- How steeply the plate is rising through each cell, squared.
+    --
+    -- This is a pass of its own rather than being folded into the tracing below,
+    -- because the width of a cell's stroke is averaged with its neighbours, and
+    -- a cell cannot average with a neighbour that has not been worked out yet.
+    -- Squared, because averaging squares and taking one root at the end gives
+    -- the same smoothing for a fifth of the roots.
+    local squaredSlopes = self.squaredSlopes
+    local inverseCellArea = 1 / (cellSize * cellSize)
+    for column = 0, columnCount - 1 do
+        local leftBase = column * valuesPerColumn
+        local rightBase = leftBase + valuesPerColumn
+        local slopeBase = column * rowCount
+        for row = 0, rowCount - 1 do
+            local topLeft = plateValues[leftBase + row]
+            local topRight = plateValues[rightBase + row]
+            local bottomLeft = plateValues[leftBase + row + 1]
+            local bottomRight = plateValues[rightBase + row + 1]
+
+            local horizontalSlope = topRight + bottomRight - topLeft - bottomLeft
+            local verticalSlope = bottomLeft + bottomRight - topLeft - topRight
+
+            -- The halving each slope needs becomes a quarter once squared, so
+            -- it is folded in here rather than done twice above.
+            squaredSlopes[slopeBase + row] =
+                (horizontalSlope * horizontalSlope + verticalSlope * verticalSlope)
+                * 0.25 * inverseCellArea
+        end
+    end
+
     -- Trace the nodal contour rather than filling cells.
     --
     -- Filling every cell where the function was near zero produced lines as
@@ -180,13 +283,15 @@ function ChladniFigures:draw(context)
     -- it, so the two points are joined. Four crossings means a saddle, where
     -- two separate branches pass through the same cell, and joining them in
     -- pairs is close enough at this size.
-    graphics.setLineWidth(lineWidth)
+    --
+    -- The line width is set per cell rather than once for the whole figure, so
+    -- it can follow the local steepness of the plate.
 
     -- Round caps, which is what makes this read as a line at all.
     --
     -- Every cell draws its own separate segment, and a segment is at most one
-    -- cell across, so at eight pixels long and up to eleven wide it is barely
-    -- longer than it is thick. With the default butt cap each one ends in a
+    -- cell across, so it is barely longer than it is thick. With the default
+    -- butt cap each one ends in a
     -- square cut perpendicular to its own direction, and because neighbouring
     -- segments meet at an angle those square ends leave a notch on the outside
     -- of every bend. The result reads as a stack of little blocks rather than
@@ -220,6 +325,48 @@ function ChladniFigures:draw(context)
 
                 local cellTop = row * cellSize
                 local cellBottom = cellTop + cellSize
+
+                -- How wide the still band is here.
+                --
+                -- Thresholding the plate function at some small value picks out
+                -- a band around the nodal line, and that band's width is simply
+                -- twice the threshold divided by how steeply the surface is
+                -- rising through it. So a steep region gives a fine line and a
+                -- flat region gives a broad one, which is the whole effect.
+                --
+                -- Averaged with whichever of the four neighbours exist, so the
+                -- width changes gradually from one segment to the next instead
+                -- of stepping, which is what keeps the edge of the stroke clean.
+                local slopeBase = column * rowCount
+                local totalSquaredSlope = squaredSlopes[slopeBase + row]
+                local cellsAveraged = 1
+
+                if column > 0 then
+                    totalSquaredSlope =
+                        totalSquaredSlope + squaredSlopes[slopeBase - rowCount + row]
+                    cellsAveraged = cellsAveraged + 1
+                end
+                if column < columnCount - 1 then
+                    totalSquaredSlope =
+                        totalSquaredSlope + squaredSlopes[slopeBase + rowCount + row]
+                    cellsAveraged = cellsAveraged + 1
+                end
+                if row > 0 then
+                    totalSquaredSlope = totalSquaredSlope + squaredSlopes[slopeBase + row - 1]
+                    cellsAveraged = cellsAveraged + 1
+                end
+                if row < rowCount - 1 then
+                    totalSquaredSlope = totalSquaredSlope + squaredSlopes[slopeBase + row + 1]
+                    cellsAveraged = cellsAveraged + 1
+                end
+
+                local slopePerPixel = math.sqrt(totalSquaredSlope / cellsAveraged)
+
+                -- The smooth mapping described where the bounds are declared.
+                -- A flat cell gives exactly the maximum and a steep one
+                -- approaches the minimum, with no branch and nothing to clamp.
+                graphics.setLineWidth(minimumLineWidth + lineWidthRange
+                    / (1 + lineWidthRange * slopePerPixel / (2 * nodalThreshold)))
 
                 local crossingCount = 0
                 local firstX, firstY, secondX, secondY
@@ -371,11 +518,17 @@ Visualizers.register(FourierEpicycles)
 -- come from the spectrum, so different music draws different figures, and the
 -- decay means each drawing completes and fades rather than running forever.
 
+-- How far the pen advances along the curve each frame before the crank adds
+-- anything, how long a figure lives before it is restarted, and how quickly the
+-- pendulums lose their travel.
+local PEN_SPEED_PER_FRAME <const> = 0.08
+local FIGURE_LIFETIME <const> = 26
+local DAMPING_RATE <const> = 0.06
+
 local Harmonograph = {
     name = "Harmonograph",
     trace = {},
     maximumTraceLength = 700,
-    elapsedTime = 0,
     frequencyX = 2.0,
     frequencyY = 3.0,
     phaseOffset = 0,
@@ -383,34 +536,51 @@ local Harmonograph = {
 
 function Harmonograph:reset()
     self.trace = {}
-    self.elapsedTime = 0
+    self.penTime = 0
+    self.dampingTime = 0
 end
 
 function Harmonograph:draw(context)
+    if not self.penTime then
+        self:reset()
+    end
+
     local bass, mid, treble = Visualizers.bassMidTreble(context)
 
-    -- Restart the drawing when the pen has run out of travel, choosing new
-    -- frequencies from the music. Simple ratios give closed elegant loops, so
-    -- the values are kept small and near whole numbers.
-    if self.elapsedTime > 26 then
-        self.elapsedTime = 0
+    -- Restart the drawing when the pendulums have run out of travel, choosing
+    -- new frequencies from the music. Simple ratios give closed elegant loops,
+    -- so the values are kept small and near whole numbers.
+    if self.dampingTime > FIGURE_LIFETIME then
+        self.penTime = 0
+        self.dampingTime = 0
         self.trace = {}
         self.frequencyX = 1 + math.floor(bass * 4) + (mid * 0.02)
         self.frequencyY = 1 + math.floor(treble * 5) + (bass * 0.02)
         self.phaseOffset = mid * math.pi
     end
 
-    -- The crank advances the pen faster, so cranking draws the figure more
-    -- quickly rather than changing its shape.
-    self.elapsedTime = self.elapsedTime + 0.08 + math.abs(context.crankDelta) / 400
+    -- Two clocks rather than one.
+    --
+    -- The pen's position along the curve is what the crank advances, and the
+    -- damping that shrinks the figure runs on its own steady clock. These used
+    -- to be the same value, and the effect was that cranking to draw the figure
+    -- faster also wound it down toward nothing sooner. The control meant to give
+    -- you more of the drawing was taking it away instead.
+    --
+    -- The restart stays on the damping clock, because what actually runs out is
+    -- the pendulums' travel and damping is what describes that. So cranking now
+    -- draws more of a figure inside the life it already had, rather than
+    -- shortening that life.
+    self.penTime = self.penTime + PEN_SPEED_PER_FRAME + math.abs(context.crankDelta) / 400
+    self.dampingTime = self.dampingTime + PEN_SPEED_PER_FRAME
 
     local centreX = context.width / 2
     local centreY = context.height / 2
-    local damping = math.exp(-self.elapsedTime * 0.06)
+    local damping = math.exp(-self.dampingTime * DAMPING_RATE)
     local amplitude = 96 * damping
 
-    local penX = centreX + math.sin(self.elapsedTime * self.frequencyX) * amplitude
-    local penY = centreY + math.sin(self.elapsedTime * self.frequencyY + self.phaseOffset) * amplitude * 0.62
+    local penX = centreX + math.sin(self.penTime * self.frequencyX) * amplitude
+    local penY = centreY + math.sin(self.penTime * self.frequencyY + self.phaseOffset) * amplitude * 0.62
 
     table.insert(self.trace, { x = penX, y = penY })
     while #self.trace > self.maximumTraceLength do

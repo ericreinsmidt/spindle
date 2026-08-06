@@ -1,0 +1,13 @@
+visualizer draw cost, measured on device
+frame budget is 33ms at 30Hz
+
+Moire          avg  23.1ms  worst  33.0ms  frames 51
+Radial         avg   4.1ms  worst   5.0ms  frames 12
+Boids          avg  16.1ms  worst  18.0ms  frames 7
+Slime          avg  38.0ms  worst  44.0ms  frames 4
+Epicycles      avg   1.7ms  worst   2.0ms  frames 6
+Harmonograph   avg   0.8ms  worst   1.0ms  frames 12
+Automaton      avg   4.8ms  worst   6.0ms  frames 20
+Chladni        avg  41.0ms  worst  50.0ms  frames 1142
+Spectrum       not measured
+Scope          not measured

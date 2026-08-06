@@ -30,7 +30,8 @@ Every item here was measured on real hardware during Phase 0, not assumed.
 |---|---|
 | Audio stops when the device is locked or the system menu opens | Playback only happens with the screen on. An in-app lock is required. Resume behaviour matters more than usual |
 | MP3 seeking is O(n), costing roughly 89.5 ms per second of seek target | MP3 is unusable for scrubbing. ADPCM seeks in about 1 ms |
-| There is no backlight. The display is reflective memory-in-pixel | A static screen is nearly free to hold, but dropping the refresh rate only saves about 22 percent of battery, so animation is affordable |
+| There is no backlight. The display is reflective memory-in-pixel | A static screen is nearly free to hold, but dropping the refresh rate only saves about 22 percent of battery, so animation is affordable. Whether white on black reads better depends on the light you are in rather than on taste, so inverting is a system menu checkbox using `playdate.display.setInverted` |
+| Drawing is bound by how much ink reaches the screen, not by arithmetic | Anything visual has to be timed on hardware. The Simulator runs where filling pixels is nearly free and will mislead you about which of two versions is faster |
 | The SDK provides no FFT, only a per-frame amplitude level | Frequency data has to be precomputed during ingest |
 | `getOffset` and `getLength` return wrong values on MP3 | Track the playhead locally. This stops mattering once everything is ADPCM |
 | Calling `setVolume(0)` on a player stops it decoding | A player cannot be pre-warmed by muting it. Mute the channel it sits on instead |
@@ -169,7 +170,7 @@ button equivalent, because plenty of people leave the crank docked all the time.
 |---|---|---|
 | Library | Scrolls the list | Up and down move, A opens, B goes back |
 | Now playing | Scrubs the track | Left and right change track, up opens the fullscreen visualizer, down cycles play modes, holding down cycles repeat |
-| Fullscreen visualizer | Drives the visualizer | Left and right seek by 10 seconds, down returns |
+| Fullscreen visualizer | Drives the visualizer, except on the waveform scope where it scrubs the track | Left and right seek by 10 seconds, down returns |
 
 To unlock from pocket mode, hold A and B together for two seconds while a
 progress ring fills. This works regardless of whether the crank is docked, and a
@@ -271,11 +272,19 @@ music player uses it for anything except scrolling, so a visualizer you can play
 with is genuinely new, and it holds up to repeat viewing far better than one you
 only watch.
 
+A visualizer can also decline the crank and ask for it to be spent on scrubbing
+instead, by setting `scrubsWithCrank`. Only the waveform scope does, because it
+is the one that shows where you are in a song rather than only what it sounds
+like right now, so seeing the quiet intro end and then turning to it is the
+obvious thing to want. It is declared rather than acted on so that visualizers
+stay ignorant of playback: they see a context table and nothing else, and the
+screen is what honours the request.
+
 The first batch:
 
 | Visualizer | What it does |
 |---|---|
-| Chladni figures | The nodal patterns of a vibrating plate, traced as an interpolated contour rather than filled cells. Mode numbers follow the spectrum continuously with a slow drift on top. Drawn as a heavy uniform line with round caps, seven pixels growing to eleven on loud passages |
+| Chladni figures | The nodal patterns of a vibrating plate, traced as an interpolated contour rather than filled cells. Mode numbers follow the spectrum continuously with a slow drift on top. Line width comes from the local steepness of the plate, so the figure swells where nodal lines converge, between 10 and 34 pixels, with loudness widening the whole thing |
 | Fourier epicycles | Circles rotating on circles, each radius taken from a spectrum band. The drawing mechanism and the audio analysis are the same operation |
 | Harmonograph | Two damped pendulums tracing a curve. Frequencies come from spectral peaks and the drawing restarts on a beat |
 | Cellular automaton | Rule 30 or 110 scrolling upward, each new row seeded by the current spectrum. Pure 1-bit with no dithering needed |
@@ -328,6 +337,32 @@ Performance. Most visualizers run at 25 to 30 fps against a 30 fps target.
 Chladni originally ran at 6, because two sine lookups sat inside the inner loop
 and were being recomputed once per column for every row. It was rewritten to
 hoist those, then rewritten again to trace the contour rather than fill cells.
+
+It has since been through a longer round of work, measured on hardware at every
+step, and the numbers are worth keeping because two of the three predictions
+made along the way were wrong.
+
+    uniform width, cell 8                         36.2 ms    27 fps
+    gradient width 10 to 26, cell 10              41.0 ms    21 fps
+    gradient width 10 to 34, cell 14, smoothed    31.6 ms    30 fps
+
+The middle row is the lesson. Deriving the width from the local gradient was
+predicted to be cheaper on the strength of a Simulator benchmark, and on the
+device it was 13 percent worse. The Simulator runs on a host where filling
+pixels is nearly free, so it was measuring the Lua arithmetic, while the device
+is bound by how much ink ends up on the screen. Black coverage had gone from 17.7
+to 32.6 percent.
+
+The recovery came from the grid rather than from the widths. At identical widths,
+cell 10 to cell 14 saved 31 percent, while narrowing the lines at a fixed cell
+size saved only 4 to 8 percent for a figure that looked much lighter. That is the
+signature of overdraw: each cell draws its own round capped segment, and a cap
+reaches half a line width past each end, so with cells closer together than the
+caps are wide, most of that ink is the same pixels being filled repeatedly.
+
+A second attempt to predict, this time with a cost model calibrated on two device
+measurements, failed its own calibration and was thrown away rather than trusted.
+Anything that matters here gets measured on hardware.
 
 ## Remaining unknowns
 

@@ -147,6 +147,18 @@ Visualizers.register(RadialSpectrum)
 
 local WaveformScope = {
     name = "Scope",
+
+    -- Ask the screen to spend the crank on scrubbing the track rather than
+    -- handing it here. This is the one visualizer that shows where you are in a
+    -- song rather than only what it sounds like right now, so a crank that did
+    -- anything else would be the wrong crank: you can see the quiet intro end
+    -- and the chorus arrive, and the obvious thing to do is turn to one of them.
+    --
+    -- It is declared rather than acted on, because a visualizer knows nothing
+    -- about playback and is not going to start now. This file imports the
+    -- visualizer registry and nothing else, which is what lets any of these be
+    -- reasoned about on their own.
+    scrubsWithCrank = true,
 }
 
 function WaveformScope:reset()

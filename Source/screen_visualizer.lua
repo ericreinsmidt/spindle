@@ -2,22 +2,16 @@
 --
 -- This is where the crank stops being a scrub control and becomes part of the
 -- visual. Every visualizer receives the crank movement and can do what it
--- likes with it: steer a flock, rotate a moire grid, wind an epicycle
--- mechanism faster. No other Playdate music player does anything with the
+-- likes with it: steer a flock, rotate a moire grid, slide a vibrating plate
+-- through its modes. No other Playdate music player does anything with the
 -- crank except scroll, so a visualizer you can play with is the thing that
 -- makes this worth building.
 --
 -- Controls follow the design:
---   crank         drives whichever visualizer is showing, except on Scope,
---                 where it scrubs the track
+--   crank         drives whichever visualizer is showing
 --   left, right   seek by ten seconds, so you are never stranded here
 --   up            switch to the next visualizer
 --   down, B       back to now playing
---
--- Scope is the exception because it is the one visualizer that shows where you
--- are in a song rather than only what it sounds like right now. It asks for the
--- crank by declaring scrubsWithCrank, and this screen honours that, so no
--- visualizer has to know that playback exists.
 
 import "visualizers"
 import "player"
@@ -33,16 +27,14 @@ local graphics <const> = playdate.graphics
 -- The order the picker steps through. Named here rather than depending on
 -- import order and where each register call happens to sit.
 Visualizers.setOrder({
-    "Moire",
-    "Radial",
-    "Boids",
+    "Screened Porch",
+    "Maigasa",
+    "Koi",
     "Slime",
-    "Epicycles",
-    "Harmonograph",
-    "Automaton",
-    "Chladni",
+    "Spirograph",
+    "Triforce",
+    "Haring",
     "Spectrum",
-    "Scope",
 })
 
 local SEEK_STEP_IN_SECONDS <const> = 10
@@ -54,9 +46,8 @@ local NAME_OVERLAY_DURATION_MILLISECONDS <const> = 1400
 local selectedVisualizerIndex = 1
 local frameNumber = 0
 
--- Crank movement for this frame, worked out in update and handed to the
--- visualizer in draw. It is zero on a visualizer that spent its crank on
--- scrubbing instead.
+-- Crank movement for this frame, read in update and handed to the visualizer in
+-- draw.
 local crankDeltaThisFrame = 0
 
 local nameOverlayExpiresAtMilliseconds = 0
@@ -201,27 +192,10 @@ end
 
 
 function ScreenVisualizer.update()
-    -- Decide where this frame's crank movement goes before anything else uses
-    -- it. Most visualizers get it to play with, but one can ask for it to be
-    -- spent on scrubbing the track instead by declaring scrubsWithCrank, and
-    -- the screen is the only place that can honour that without a visualizer
-    -- having to know that playback exists.
-    --
-    -- The threshold matches the now playing screen, so resting a hand on the
-    -- crank does not creep the playhead along.
-    local crankChange = playdate.getCrankChange()
-    local currentVisualizer = Visualizers.get(selectedVisualizerIndex)
-
-    if currentVisualizer and currentVisualizer.scrubsWithCrank then
-        if math.abs(crankChange) > 0.5 then
-            Player.addCrankScrub(crankChange)
-        end
-        -- Spent. The visualizer sees no movement, so nothing can react to the
-        -- same turn twice.
-        crankDeltaThisFrame = 0
-    else
-        crankDeltaThisFrame = crankChange
-    end
+    -- Read the crank once and hand it to whichever visualizer is showing. It is
+    -- read here rather than inside buildContext so that the screen owns the
+    -- decision about where a turn goes.
+    crankDeltaThisFrame = playdate.getCrankChange()
 
     -- Keep the report up to date while the overlay is being watched, so the
     -- status line in it reflects a write that just happened rather than one

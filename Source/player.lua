@@ -586,13 +586,3 @@ function Player.update()
     end
 end
 
-
--- Stop everything and release both players. Used when the app is shutting down
--- or the library is being reloaded.
-function Player.stop()
-    discardPlayer(activePlayer, activeChannel)
-    discardWarmedPlayer()
-    activePlayer = nil
-    activeChannel = nil
-    isCurrentlyPlaying = false
-end

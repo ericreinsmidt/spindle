@@ -19,7 +19,6 @@ import "CoreLibs/graphics"
 import "CoreLibs/crank"
 
 import "library"
-import "analysis"
 import "player"
 import "session"
 import "typography"
@@ -156,22 +155,18 @@ end
 -- leave, so it is the single place the session is marked as having ended
 -- cleanly, and that is what stops the app from starting the music again by
 -- itself on the next launch.
+--
+-- The matching gameWillResume and deviceDidUnlock are not defined. They are
+-- optional, coming back needs nothing done, and an empty function that the
+-- system calls to do nothing is worse than no function at all.
 
 function playdate.gameWillPause()
     Session.save(false)
 end
 
 
-function playdate.gameWillResume()
-end
-
-
 function playdate.deviceWillLock()
     Session.save(false)
-end
-
-
-function playdate.deviceDidUnlock()
 end
 
 

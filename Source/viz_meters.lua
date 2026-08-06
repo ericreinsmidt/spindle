@@ -53,13 +53,6 @@ function SpectrumBars:draw(context)
             graphics.fillRect(barLeft, context.height - peakHeight - 3, barWidth, 2)
         end
     end
-
-    -- A beat draws a line across the top, which is the simplest possible way
-    -- to confirm the onset detection is working and lines up with what you
-    -- hear.
-    if context.beat then
-        graphics.fillRect(0, 0, context.width, 3)
-    end
 end
 
 Visualizers.register(SpectrumBars)
@@ -73,9 +66,26 @@ Visualizers.register(SpectrumBars)
 -- which turns the spectrum into a shape. The crank rotates the whole figure,
 -- and because the bands are mirrored around the circle the result stays
 -- symmetrical however far it is turned.
+--
+-- Shown as Maigasa, the Japanese dance umbrella, for the spokes and the ring
+-- around them.
+
+-- Everything here is sized so the whole figure fits on the screen.
+--
+-- The screen is 240 tall, so anything drawn from the centre has 120 pixels
+-- before it runs off the top and bottom. The spokes previously reached 134 at
+-- full band value and the ring on a beat sat at up to 142, so both were being
+-- cut off by the edge, and the ring in particular read as two arcs at the sides
+-- rather than as a ring at all.
+--
+-- The longest spoke now reaches 112 and the ring sits at 116, just outside it,
+-- which keeps the ring whole and still lets the spokes nearly touch it on a
+-- loud passage.
+local SPOKE_REACH <const> = 66
+local BEAT_RING_RADIUS <const> = 116
 
 local RadialSpectrum = {
-    name = "Radial",
+    name = "Maigasa",
     rotation = 0,
 }
 
@@ -105,7 +115,7 @@ function RadialSpectrum:draw(context)
             or (spokeCount - spokeNumber + 1)
 
         local bandValue = context.bands[bandNumber] or 0
-        local spokeLength = innerRadius + (bandValue / 255) * 88
+        local spokeLength = innerRadius + (bandValue / 255) * SPOKE_REACH
 
         local spokeAngle = self.rotation + (spokeNumber / spokeCount) * math.pi * 2
         local pointX = centreX + math.cos(spokeAngle) * spokeLength
@@ -128,101 +138,8 @@ function RadialSpectrum:draw(context)
     end
 
     if context.beat then
-        graphics.drawCircleAtPoint(centreX, centreY, innerRadius + 96)
+        graphics.drawCircleAtPoint(centreX, centreY, BEAT_RING_RADIUS)
     end
 end
 
 Visualizers.register(RadialSpectrum)
-
-
--- ---------------------------------------------------------------------------
--- Waveform scope
--- ---------------------------------------------------------------------------
---
--- The whole track's waveform drawn large, with the playhead riding it and the
--- section currently playing magnified underneath. It is the only visualizer
--- that shows you where you are in the track rather than only what it sounds
--- like right now, which makes it the useful one to leave running while
--- scrubbing with the crank.
-
-local WaveformScope = {
-    name = "Scope",
-
-    -- Ask the screen to spend the crank on scrubbing the track rather than
-    -- handing it here. This is the one visualizer that shows where you are in a
-    -- song rather than only what it sounds like right now, so a crank that did
-    -- anything else would be the wrong crank: you can see the quiet intro end
-    -- and the chorus arrive, and the obvious thing to do is turn to one of them.
-    --
-    -- It is declared rather than acted on, because a visualizer knows nothing
-    -- about playback and is not going to start now. This file imports the
-    -- visualizer registry and nothing else, which is what lets any of these be
-    -- reasoned about on their own.
-    scrubsWithCrank = true,
-}
-
-function WaveformScope:reset()
-end
-
-function WaveformScope:draw(context)
-    local analysis = context.analysis
-    if not analysis or #analysis.waveform == 0 then
-        graphics.drawText("no waveform data", 130, 110)
-        return
-    end
-
-    local waveform = analysis.waveform
-    local pointCount = #waveform
-
-    local playedFraction = 0
-    if context.length > 0 then
-        playedFraction = math.min(1, math.max(0, context.position / context.length))
-    end
-
-    -- The whole track across the top half.
-    local overviewCentreY = 66
-    local overviewHalfHeight = 46
-    local pointSpacing = context.width / pointCount
-    local playedPointCount = math.floor(playedFraction * pointCount)
-
-    for pointIndex, pointValue in ipairs(waveform) do
-        local barHalfHeight = math.max(1, (pointValue / 255) * overviewHalfHeight)
-        local barLeft = (pointIndex - 1) * pointSpacing
-
-        if pointIndex <= playedPointCount then
-            graphics.fillRect(barLeft, overviewCentreY - barHalfHeight,
-                math.max(1, pointSpacing - 1), barHalfHeight * 2)
-        else
-            graphics.drawRect(barLeft, overviewCentreY - barHalfHeight,
-                math.max(1, pointSpacing - 1), barHalfHeight * 2)
-        end
-    end
-
-    local playheadX = context.width * playedFraction
-    graphics.setColor(graphics.kColorWhite)
-    graphics.fillRect(playheadX - 2, 8, 5, 116)
-    graphics.setColor(graphics.kColorBlack)
-    graphics.fillRect(playheadX - 1, 8, 2, 116)
-
-    -- A magnified window around the playhead across the bottom half, so the
-    -- immediate neighbourhood is legible while the top shows the whole track.
-    local detailCentreY = 180
-    local detailHalfHeight = 46
-    local windowPointCount = 40
-    local firstDetailPoint = math.max(1, playedPointCount - windowPointCount // 2)
-    local detailSpacing = context.width / windowPointCount
-
-    for offset = 0, windowPointCount - 1 do
-        local pointIndex = firstDetailPoint + offset
-        if pointIndex > pointCount then
-            break
-        end
-        local barHalfHeight = math.max(1, (waveform[pointIndex] / 255) * detailHalfHeight)
-        graphics.fillRect(offset * detailSpacing, detailCentreY - barHalfHeight,
-            math.max(1, detailSpacing - 2), barHalfHeight * 2)
-    end
-
-    graphics.drawLine(0, 132, context.width, 132)
-end
-
-Visualizers.register(WaveformScope)

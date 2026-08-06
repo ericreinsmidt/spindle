@@ -178,18 +178,3 @@ function Analysis.isOnBeat(analysis, positionInSeconds)
     return false
 end
 
-
--- Overall loudness at a position, averaged across the bands and scaled to zero
--- through one. Useful for visualizers that only want a single number.
-function Analysis.energyAtPosition(analysis, positionInSeconds)
-    local bandValues = Analysis.bandsAtPosition(analysis, positionInSeconds)
-    if not bandValues then
-        return 0
-    end
-
-    local total = 0
-    for _, bandValue in ipairs(bandValues) do
-        total = total + bandValue
-    end
-    return (total / #bandValues) / 255
-end

@@ -22,6 +22,9 @@ local graphics <const> = playdate.graphics
 -- Rather than redrawing the whole history every frame, the previous frame's
 -- image is blitted upward by one row and only the new row is drawn. That turns
 -- an expensive full redraw into two image copies.
+--
+-- Shown as Triforce, because rule 90 draws a Sierpinski triangle and that is
+-- what most people have actually seen one in.
 
 -- How far the crank has to turn to shear the pattern by one pixel. A full
 -- revolution is 360 degrees, so this works out to twelve pixels of shear per
@@ -29,8 +32,20 @@ local graphics <const> = playdate.graphics
 local CRANK_DEGREES_PER_SHEAR_PIXEL <const> = 30
 
 local CellularAutomaton = {
-    name = "Automaton",
-    cellSize = 4,
+    name = "Triforce",
+
+    -- Eight rather than four, because rule 90 draws a Sierpinski triangle and at
+    -- four pixels the triangles were too fine to read as triangles.
+    --
+    -- This is the scroll speed as well as the cell size, because the history
+    -- moves up by exactly one cell every time a row is added, and a row is added
+    -- every frame. Adding rows every other frame was tried, to keep the original
+    -- pace with the larger cells, and it was visibly jerky: an eight pixel jump
+    -- fifteen times a second reads as a stutter no matter what the frame rate
+    -- says. Smooth motion needs one step per frame, so the pattern now travels
+    -- twice as fast as it used to and that is the price of the bigger triangles.
+    cellSize = 8,
+
     ruleNumber = 30,
 }
 
@@ -77,6 +92,22 @@ function CellularAutomaton:draw(context)
         self.ruleNumber = interestingRules[math.random(#interestingRules)]
     end
 
+    -- The crank tilts the scroll sideways, which shears the whole pattern.
+    --
+    -- The shear has to be a whole number of pixels, because it is an image blit
+    -- offset, and the movement available in one frame is usually a fraction of
+    -- one. So the fraction is carried over rather than discarded, which is what
+    -- makes a slow steady turn produce a slow steady shear.
+    --
+    -- This was previously math.floor of the raw movement, which was broken in
+    -- both directions at once. Thirty degrees inside a single frame is two and a
+    -- half revolutions per second, so cranking forward at any sane speed did
+    -- nothing at all. Meanwhile math.floor rounds toward negative infinity, so
+    -- the smallest backward movement floored to minus one and sheared a full
+    -- pixel every frame. Cranking one way did nothing and the other way ran away.
+    self.unspentSidewaysShift =
+        (self.unspentSidewaysShift or 0) + context.crankDelta / CRANK_DEGREES_PER_SHEAR_PIXEL
+
     -- Compute the next row from the current one.
     local nextRow = {}
     local columnCount = self.columnCount
@@ -105,22 +136,7 @@ function CellularAutomaton:draw(context)
     self.currentRow = nextRow
 
     -- Scroll the history up by one cell and draw the new row at the bottom.
-    -- The crank tilts the scroll sideways, which shears the whole pattern.
     --
-    -- The shear has to be a whole number of pixels, because it is an image blit
-    -- offset, and the movement available in one frame is usually a fraction of
-    -- one. So the fraction is carried over to the next frame rather than thrown
-    -- away, which is what makes a slow steady turn produce a slow steady shear.
-    --
-    -- This was previously math.floor of the raw movement, which was broken in
-    -- both directions at once. Thirty degrees inside a single frame is two and a
-    -- half revolutions per second, so cranking forward at any sane speed did
-    -- nothing at all. Meanwhile math.floor rounds toward negative infinity, so
-    -- the smallest backward movement floored to minus one and sheared a full
-    -- pixel every frame. Cranking one way did nothing and the other way ran away.
-    self.unspentSidewaysShift =
-        (self.unspentSidewaysShift or 0) + context.crankDelta / CRANK_DEGREES_PER_SHEAR_PIXEL
-
     -- Truncate toward zero, so both directions behave the same way.
     local sidewaysShift = 0
     if self.unspentSidewaysShift >= 1 then
@@ -171,9 +187,11 @@ Visualizers.register(CellularAutomaton)
 -- neighbours, steer away from ones that are too close, and match their average
 -- heading. The crank steers an attractor that the flock chases, which makes
 -- this the visualizer you play with rather than watch.
+--
+-- Shown as Koi, for how a flock of them moves in a pond.
 
 local Boids = {
-    name = "Boids",
+    name = "Koi",
     boidCount = 44,
     attractorAngle = 0,
 }

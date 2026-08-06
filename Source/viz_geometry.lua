@@ -1,6 +1,6 @@
 -- Geometric visualizers.
 --
--- These four draw mathematics rather than simulating anything, which suits a
+-- These three draw mathematics rather than simulating anything, which suits a
 -- 1-bit screen: they are all line work, and line work needs no dithering to
 -- read clearly.
 
@@ -22,9 +22,11 @@ local sinePi <const> = Visualizers.sinePi
 -- The plate function is:
 --     sin(n*pi*x) * sin(m*pi*y) - sin(m*pi*x) * sin(n*pi*y)
 -- and a point is on a nodal line when that value is near zero.
+--
+-- Shown as Haring, for the heavy black outlines it ends up drawing.
 
 local ChladniFigures = {
-    name = "Chladni",
+    name = "Haring",
 
     -- The grid the contour is traced over. It does not need to be fine enough
     -- to look smooth, because the crossing points are interpolated between grid
@@ -433,83 +435,6 @@ Visualizers.register(ChladniFigures)
 
 
 -- ---------------------------------------------------------------------------
--- Fourier epicycles
--- ---------------------------------------------------------------------------
---
--- Circles rotating on circles, with the pen at the end tracing a curve. Each
--- circle's radius is taken directly from a spectrum band, which makes this the
--- most literal visualizer of the set: a Fourier series is exactly what the
--- analysis computed, so the drawing mechanism and the audio analysis are the
--- same operation.
-
-local FourierEpicycles = {
-    name = "Epicycles",
-    circleCount = 6,
-    trace = {},
-    maximumTraceLength = 260,
-    rotationPhase = 0,
-}
-
-function FourierEpicycles:reset()
-    self.trace = {}
-    self.rotationPhase = 0
-end
-
-function FourierEpicycles:draw(context)
-    -- The crank adds to the rotation speed, so cranking winds the whole
-    -- mechanism faster and reverses it when turned the other way.
-    self.rotationPhase = self.rotationPhase + 0.012 + context.crankDelta / 2000
-
-    local centreX = context.width / 2
-    local centreY = context.height / 2
-
-    local penX = centreX
-    local penY = centreY
-
-    for circleNumber = 1, self.circleCount do
-        -- Spread the chosen bands across the spectrum rather than taking the
-        -- first six, so the mechanism responds to the whole range.
-        local bandNumber = 1 + (circleNumber - 1) * 3
-        local bandValue = context.bands[math.min(bandNumber, context.bandCount)] or 0
-        local radius = 6 + (bandValue / 255) * (74 / circleNumber)
-
-        -- Each circle turns at an integer multiple of the base rate, which is
-        -- what makes the traced figure close rather than wander.
-        local angle = self.rotationPhase * circleNumber * (circleNumber % 2 == 0 and -1 or 1)
-
-        local nextX = penX + math.cos(angle) * radius
-        local nextY = penY + math.sin(angle) * radius
-
-        graphics.drawCircleAtPoint(penX, penY, radius)
-        graphics.drawLine(penX, penY, nextX, nextY)
-
-        penX = nextX
-        penY = nextY
-    end
-
-    -- The pen leaves a trail, which is the actual figure being drawn.
-    table.insert(self.trace, { x = penX, y = penY })
-    while #self.trace > self.maximumTraceLength do
-        table.remove(self.trace, 1)
-    end
-
-    -- A beat clears the trail, so each phrase draws a fresh figure instead of
-    -- accumulating into an unreadable tangle.
-    if context.beat and #self.trace > 40 then
-        self.trace = {}
-    end
-
-    for pointIndex = 2, #self.trace do
-        local previousPoint = self.trace[pointIndex - 1]
-        local currentPoint = self.trace[pointIndex]
-        graphics.drawLine(previousPoint.x, previousPoint.y, currentPoint.x, currentPoint.y)
-    end
-end
-
-Visualizers.register(FourierEpicycles)
-
-
--- ---------------------------------------------------------------------------
 -- Harmonograph
 -- ---------------------------------------------------------------------------
 --
@@ -517,6 +442,8 @@ Visualizers.register(FourierEpicycles)
 -- losing energy over time, with a pen tracing where they meet. The frequencies
 -- come from the spectrum, so different music draws different figures, and the
 -- decay means each drawing completes and fades rather than running forever.
+--
+-- Shown as Spirograph, which is the toy version of the same idea.
 
 -- How far the pen advances along the curve each frame before the crank adds
 -- anything, how long a figure lives before it is restarted, and how quickly the
@@ -526,7 +453,7 @@ local FIGURE_LIFETIME <const> = 26
 local DAMPING_RATE <const> = 0.06
 
 local Harmonograph = {
-    name = "Harmonograph",
+    name = "Spirograph",
     trace = {},
     maximumTraceLength = 700,
     frequencyX = 2.0,
@@ -606,9 +533,11 @@ Visualizers.register(Harmonograph)
 -- lines nearly coincide. This is the cheapest visualizer here and the one most
 -- native to a 1-bit screen, because moire needs hard pixels and looks worse
 -- with any smoothing at all.
+--
+-- Shown as Screened Porch, which is where most people have actually seen this.
 
 local MoireInterference = {
-    name = "Moire",
+    name = "Screened Porch",
     rotationAngle = 0.3,
 }
 
@@ -665,11 +594,18 @@ function MoireInterference:draw(context)
 
     -- Mid energy punches a clear circle in the middle, giving the eye
     -- somewhere to rest and making the interference read as deliberate.
+    --
+    -- It is sized against the screen rather than by eye. The screen is 240 tall,
+    -- so a radius of 100 leaves a 20 pixel margin top and bottom, which is as
+    -- large as it can be and still read as a disc sitting on the pattern rather
+    -- than as a band across it.
     if mid > 0.25 then
+        local holeRadius = 36 + mid * 64
+
         graphics.setColor(graphics.kColorWhite)
-        graphics.fillCircleAtPoint(centreX, centreY, 14 + mid * 40)
+        graphics.fillCircleAtPoint(centreX, centreY, holeRadius)
         graphics.setColor(graphics.kColorBlack)
-        graphics.drawCircleAtPoint(centreX, centreY, 14 + mid * 40)
+        graphics.drawCircleAtPoint(centreX, centreY, holeRadius)
     end
 end
 

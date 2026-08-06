@@ -72,7 +72,7 @@ files cannot hold ID3 tags.
 /Data/com.reinsmidt.spindle/
   music/<album>/<track>.pda       converted audio
   art/<album>.pdi                 album art, dithered to 1-bit at 140 px
-  art/<album>-thumb.pdi           the same art at 36 px for the album list
+  art/<album>-thumb.pdi           the same art at 60 px for the album list
   analysis/<album>/<track>.bin    spectrum, onsets and waveform
   library.json                    the index, read once at startup
   session.json                    what was playing, written by the app
@@ -81,19 +81,27 @@ files cannot hold ID3 tags.
 The thumbnail path is not in the index. The app derives it by adding `-thumb`
 to the full image's path, which means an existing library gains thumbnails by
 rebuilding the artwork alone rather than by being ingested again from scratch.
-`ingest.py --artwork-only` does exactly that, and leaves the audio, the analysis
-files and the index untouched.
+`ingest.py --only artwork` does exactly that, and leaves the audio, the analysis
+files and the index untouched. `--only analysis` is the matching flag for the
+other direction, which rebuilt all 122 analysis files in 54 seconds against a
+full run and a gigabyte of copying.
 
-The two sizes are produced by different methods, which matters more than it
-sounds. The full size image is Floyd Steinberg dithered, because at 140 pixels
-there are enough dots to carry continuous tone. Thirty six pixels is nowhere
-near enough, and dithering a cover at that size produces noise that reads as
-texture rather than as a picture. The thumbnail instead has its contrast
-stretched, is blurred very slightly to throw away detail that would break into
-speckle, and is then thresholded hard at mid grey. The result is a silhouette,
-which is what actually identifies a record at that size. Four approaches were
-compared side by side at six times magnification before settling on this one,
-and the deciding test was whether lettering on a cover survived.
+Both sizes are Floyd Steinberg dithered, with the contrast stretched first on
+the thumbnail because it has far fewer dots to spend on the difference between
+one dark grey and another.
+
+How small the thumbnail is decides which method works, and the answer is not the
+same at every size. The album list originally showed five rows with room for 36
+pixels, and at that size error diffusion has nowhere near enough dots to average
+out: every photographic cover came out as noise that read as texture rather than
+as a picture. Four approaches were compared at six times magnification and the
+only readable one threw the tone away entirely, reducing each cover to a
+silhouette by stretching contrast, blurring slightly and thresholding hard.
+
+The list now shows three rows with room for 60 pixels, and the comparison comes
+out the other way round. There are enough dots for dithering to carry real tone,
+faces are recognisable, and lettering on a cover is legible as lettering. The
+silhouette method looks blobby beside it.
 
 Startup reads a single file rather than scanning hundreds of small ones on
 storage we have measured as slow. To change something, edit an m3u and re-run
@@ -284,14 +292,13 @@ The first batch:
 
 | Visualizer | What it does |
 |---|---|
-| Chladni figures | The nodal patterns of a vibrating plate, traced as an interpolated contour rather than filled cells. Mode numbers follow the spectrum continuously with a slow drift on top. Line width comes from the local steepness of the plate, so the figure swells where nodal lines converge, between 10 and 34 pixels, with loudness widening the whole thing |
-| Fourier epicycles | Circles rotating on circles, each radius taken from a spectrum band. The drawing mechanism and the audio analysis are the same operation |
-| Harmonograph | Two damped pendulums tracing a curve. Frequencies come from spectral peaks and the drawing restarts on a beat |
-| Cellular automaton | Rule 30 or 110 scrolling upward, each new row seeded by the current spectrum. Pure 1-bit with no dithering needed |
-| Boids | The crank steers an attractor the flock chases. Bass tightens cohesion, treble increases separation, beats scatter the flock |
-| Moire interference | Two line grids overlaid, one rotated by the crank, spacing driven by the bands. The cheapest to draw and the most native to a 1-bit screen |
-| Slime mould | Physarum agents laying pheromone trails toward a food source the crank moves |
-| Spectrum and waveform | The readable one, which doubles as the scrub display |
+| Haring, a Chladni figure | The nodal patterns of a vibrating plate, traced as an interpolated contour rather than filled cells. Mode numbers follow the spectrum continuously with a slow drift on top. Line width comes from the local steepness of the plate, so the figure swells where nodal lines converge, between 10 and 34 pixels, with loudness widening the whole thing |
+| Spirograph, a harmonograph | Two damped pendulums tracing a curve. Frequencies come from spectral peaks and the drawing restarts on a beat |
+| Triforce, a cellular automaton | Rule 30 or 110 scrolling upward, each new row seeded by the current spectrum. Pure 1-bit with no dithering needed |
+| Koi, a boids flock | The crank steers an attractor the flock chases. Bass tightens cohesion, treble increases separation, beats scatter the flock |
+| Screened Porch, a moire | Two line grids overlaid, one rotated by the crank, spacing driven by the bands. The cheapest to draw and the most native to a 1-bit screen |
+| Slime, a physarum colony | Physarum agents laying pheromone trails toward a food source the crank moves |
+| Spectrum, and Maigasa which is the same bands around a circle | The readable ones, for when the others are being decorative |
 
 Ideas held back for later: a gravity well, a ripple tank, an Abelian sandpile,
 Langton's ant, Truchet tiles, a pendulum wave, and strange attractors.

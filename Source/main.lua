@@ -91,6 +91,12 @@ end
 
 playdate.display.setRefreshRate(30)
 playdate.setAutoLockDisabled(true)
+
+-- The system plays a clunk when the crank is deployed or docked. It belongs in a
+-- game and it does not belong over a record, so it is off. The system turns it
+-- back on by itself when this app terminates, so nothing leaks into the
+-- launcher or into anything else.
+playdate.setCrankSoundsDisabled(true)
 graphics.setBackgroundColor(graphics.kColorWhite)
 
 -- White on black, for the whole app, always.

@@ -17,5 +17,20 @@ library/
 # Source music, if anyone ever puts it inside the project folder.
 Music/
 
-# The design document. Kept for my own reference rather than published.
+# Everything below is kept locally and deliberately not published. None of it is
+# needed to build Spindle, run it, or prepare music for it, which is the bar for
+# being in the repository at all.
+
+# The design document. A working document rather than something to publish.
 DESIGN.md
+
+# Raw logs from the hardware investigation. Useful to me, noise to anyone else,
+# and some of them are named after other people's projects because their files
+# were used as test material.
+notes/
+
+# The tooling that makes the demo video and the animations. Promotional work
+# rather than part of the app.
+tools/demo-recorder/
+tools/make_demo_video.py
+tools/make_readme_animations.py

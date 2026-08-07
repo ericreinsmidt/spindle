@@ -1,6 +1,0 @@
-name=Seek Test
-author=
-description=Minimal isolated characterisation of fileplayer setOffset
-bundleID=com.example.seektest
-version=0.1
-buildNumber=1

@@ -177,13 +177,33 @@ ingest output goes across separately as above.
 
 ## Controls
 
-| Screen | Crank | Buttons |
+One row per control, rather than one row per screen, because now playing has
+eight of them and cramming those into a single cell was what made the table
+unreadable.
+
+| Screen | Control | What it does |
 |---|---|---|
-| Album list | Scrolls | Up and down move, A opens, B jumps to what is playing |
-| Track list | Scrolls | Up and down move, A plays the album from here, B goes back |
-| Now playing | Scrubs the track | A pauses, left and right change track, up opens the visualizers, down cycles play mode, hold down for repeat mode, B goes back, hold B for pocket mode |
-| Visualizers | Drives the visualizer | Left and right seek ten seconds, A pauses, up switches visualizer, down or B returns |
-| Pocket | Nothing | Everything ignored except A and B held together for two seconds |
+| Album list | Crank, or up and down | Move through the list |
+| | A | Open the album or playlist |
+| | B | Jump to what is playing |
+| Track list | Crank, or up and down | Move through the tracks |
+| | A | Play the album from this track on |
+| | B | Back to the album list |
+| Now playing | Crank | Scrub the track |
+| | A | Pause and resume |
+| | Left, right | Previous and next track |
+| | Up | Open the visualizers |
+| | Down | Cycle play mode |
+| | Hold down | Cycle repeat mode |
+| | B | Back to the album list |
+| | Hold B | Pocket mode |
+| Visualizers | Crank | Drives whichever one is showing |
+| | A | Pause and resume |
+| | Left, right | Seek ten seconds |
+| | Up | Next visualizer |
+| | Down, or B | Back to now playing |
+| Pocket | Anything | Ignored |
+| | A and B together, two seconds | Unlock |
 
 ## Why there is a build step
 
@@ -215,14 +235,10 @@ Source/                the Lua app
   visualizers.lua        plugin registry and the per frame context
   viz_*.lua              the visualizers themselves
 tools/
-  ingest.py                 music folder in, Playdate data out
-  make_launcher_art.py      launcher art, cover marks and the README logos
-  make_demo_video.py        assembles the demo video from recorded frames
-  make_readme_animations.py animated WebP, for anywhere that cannot play video
-  demo-recorder/            the input harness that records those frames
-assets/                source artwork
+  ingest.py              music folder in, Playdate data out
+  make_launcher_art.py   launcher art, cover marks and the README logos
+assets/                the photograph the launcher art is generated from
 docs/                  the README logos
-notes/                 raw logs from the hardware investigation
 ```
 
 Adding a `viz_*.lua` file that registers itself is all it takes to add a

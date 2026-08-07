@@ -7,7 +7,7 @@
 </picture>
 
 <p>
-  <a href="https://github.com/ericreinsmidt/spindle/releases/latest"><img alt="Download the latest release" src="https://img.shields.io/github/v/release/ericreinsmidt/spindle?label=download&color=7C3AED"></a>
+  <a href="https://github.com/ericreinsmidt/spindle/releases"><img alt="Release downloads" src="https://img.shields.io/github/downloads/ericreinsmidt/spindle/total?label=downloads&color=7C3AED"></a>
   <a href="LICENSE"><img alt="License: 0BSD" src="https://img.shields.io/badge/license-0BSD-FFC833"></a>
   <a href="https://play.date"><img alt="Platform: Playdate" src="https://img.shields.io/badge/platform-Playdate-FFC833"></a>
   <img alt="Built against Playdate SDK 3.1.1" src="https://img.shields.io/badge/Playdate%20SDK-3.1.1-7C3AED">

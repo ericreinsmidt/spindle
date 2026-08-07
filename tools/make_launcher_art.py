@@ -35,6 +35,24 @@ OUTPUT_FOLDER = PROJECT_FOLDER / "Source" / "launcher"
 DOCS_FOLDER = PROJECT_FOLDER / "docs"
 README_LOGO_WIDTH = 720
 
+# GitHub's social preview, the picture that shows up when the repository is
+# linked anywhere. GitHub asks for 1280 by 640 and warns below 640 by 320.
+#
+# White on black, which is what the app itself looks like. A social card is seen
+# at thumbnail size in a feed, so it has to be one recognizable block rather than
+# a picture that gets read, and nothing carries further at that size than the
+# highest contrast available.
+SOCIAL_BANNER_SIZE = (1280, 640)
+SOCIAL_BANNER_INK = (255, 255, 255)
+SOCIAL_BANNER_BACKGROUND = (17, 17, 17)
+SOCIAL_TAGLINE = "An album-first music player for the Playdate"
+
+# The adapter has three fold symmetry with a lobe tip every 120 degrees, sitting
+# at 31, 150 and 270 degrees in the source. Turning it 60 brings one of them to
+# straight down, which is the way the shape reads as deliberate rather than as
+# however it happened to be lying.
+SOCIAL_BANNER_ROTATION = 60
+
 # The adapter on its own, used in the app wherever a cover is wanted and there
 # is none: beside a playlist, which has no artwork of its own, and beside an
 # album whose files carried none. Two sizes, matching the two places a cover is
@@ -288,6 +306,63 @@ def build_readme_logo(mask, ink):
     return Image.merge("RGBA", (solid, solid, solid, transparency))
 
 
+def build_social_banner(mask, ink=None, background=None, rotation=None):
+    """
+    The repository's social preview: the adapter, the wordmark, and one line
+    saying what this is, white on purple.
+
+    Composed at three times size and scaled down, the same trick the README logo
+    uses, because the arms are curved and a shape this large drawn directly
+    would show every step in them.
+    """
+    ink = ink or SOCIAL_BANNER_INK
+    background = background or SOCIAL_BANNER_BACKGROUND
+    rotation = SOCIAL_BANNER_ROTATION if rotation is None else rotation
+
+    scale = 3
+    width, height = (side * scale for side in SOCIAL_BANNER_SIZE)
+    canvas = Image.new("L", (width, height), 0)
+
+    adapter_size = round(height * 0.46)
+    adapter = ImageChops.invert(
+        mask.rotate(rotation, resample=Image.BICUBIC, fillcolor=255)
+            .resize((adapter_size, adapter_size), Image.LANCZOS))
+
+    draw = ImageDraw.Draw(canvas)
+    wordmark_font = load_wordmark_font(round(height * 0.15))
+    tagline_font = load_wordmark_font(round(height * 0.045))
+
+    wordmark_bounds = draw.textbbox((0, 0), "SPINDLE", font=wordmark_font)
+    wordmark_width = wordmark_bounds[2] - wordmark_bounds[0]
+
+    # The adapter and the wordmark are centered as one unit rather than
+    # separately, so the pair sits in the middle of the card however wide the
+    # wordmark turns out with whatever font was found.
+    gap = round(height * 0.05)
+    block_width = adapter_size + gap + wordmark_width
+    block_left = (width - block_width) // 2
+    block_top = round(height * 0.20)
+
+    canvas.paste(adapter, (block_left, block_top))
+    draw.text(
+        (block_left + adapter_size + gap - wordmark_bounds[0],
+         block_top + (adapter_size - (wordmark_bounds[3] - wordmark_bounds[1])) // 2
+         - wordmark_bounds[1]),
+        "SPINDLE", font=wordmark_font, fill=255)
+
+    tagline_bounds = draw.textbbox((0, 0), SOCIAL_TAGLINE, font=tagline_font)
+    draw.text(
+        ((width - (tagline_bounds[2] - tagline_bounds[0])) // 2 - tagline_bounds[0],
+         block_top + adapter_size + round(height * 0.10) - tagline_bounds[1]),
+        SOCIAL_TAGLINE, font=tagline_font, fill=255)
+
+    artwork = canvas.resize(SOCIAL_BANNER_SIZE, Image.LANCZOS)
+
+    banner = Image.new("RGB", SOCIAL_BANNER_SIZE, background)
+    banner.paste(Image.new("RGB", SOCIAL_BANNER_SIZE, ink), (0, 0), artwork)
+    return banner
+
+
 def build_cover_mark(mask, size):
     """
     The adapter alone, filling a square, for use where a cover is expected and
@@ -359,10 +434,12 @@ def main():
     DOCS_FOLDER.mkdir(parents=True, exist_ok=True)
     build_readme_logo(mask, "black").save(DOCS_FOLDER / "logo-light.png")
     build_readme_logo(mask, "white").save(DOCS_FOLDER / "logo-dark.png")
+    build_social_banner(mask).save(DOCS_FOLDER / "social-banner.png")
 
     total_ticks = ANIMATION_FRAME_COUNT * TICKS_PER_FRAME
     print(f"wrote README logos to {DOCS_FOLDER}")
     print(f"  logo-light.png, logo-dark.png at {README_LOGO_WIDTH}px wide")
+    print(f"  social-banner.png at {SOCIAL_BANNER_SIZE[0]} by {SOCIAL_BANNER_SIZE[1]}")
     print(f"wrote launcher art to {OUTPUT_FOLDER}")
     print(f"  card.png, card-pressed.png, icon.png")
     print(f"  {ANIMATION_FRAME_COUNT} frames over 120 degrees, held {TICKS_PER_FRAME} ticks each")

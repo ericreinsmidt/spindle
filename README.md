@@ -255,7 +255,9 @@ python3 tools/make_launcher_art.py
 
 Reads `assets/adapter-45rpm.png` and writes the launcher icon and card, the 60
 frames of the card's rotation, the adapter marks the app draws where a cover is
-missing, and the two logos above. Generated files are committed, so the project
+missing, the two logos above, and the social banner. That last one is not shown
+anywhere in this file: it is uploaded by hand under Settings, Social preview,
+and is what appears when the repository is linked somewhere else. Generated files are committed, so the project
 builds without running this first.
 
 Two constants at the top control how the launcher art comes out:

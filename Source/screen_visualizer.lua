@@ -27,7 +27,7 @@ local graphics <const> = playdate.graphics
 -- The order the picker steps through. Named here rather than depending on
 -- import order and where each register call happens to sit.
 Visualizers.setOrder({
-    "Screened Porch",
+    "Garden o' Sound",
     "Maigasa",
     "Koi",
     "Slime",

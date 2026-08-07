@@ -445,26 +445,54 @@ Visualizers.register(ChladniFigures)
 --
 -- Shown as Spirograph, which is the toy version of the same idea.
 
--- How far the pen advances along the curve each frame before the crank adds
--- anything, how long a figure lives before it is restarted, and how quickly the
--- pendulums lose their travel.
-local PEN_SPEED_PER_FRAME <const> = 0.08
+-- This one only moves when you turn the crank.
+--
+-- Every other visualizer runs on its own and takes the crank as a nudge. This
+-- one is the opposite: the pen goes exactly as far as you wind it and no
+-- further, and winding back retracts the line you just drew. With the crank
+-- still, the picture is still.
+--
+-- That forces the figure to be a pure function of how far the pen has travelled,
+-- rather than a trail of points collected frame by frame. A collected trail is
+-- history, and history cannot be wound backwards: you can stop adding to it but
+-- you cannot un-draw it. Recomputing the whole curve from the pen position every
+-- frame costs about 325 points, which is fewer than the 700 the trail held, so
+-- reversibility came out cheaper than the thing it replaced.
+--
+-- Two turns of the crank draw a complete figure.
 local FIGURE_LIFETIME <const> = 26
+local PEN_TIME_PER_CRANK_DEGREE <const> = FIGURE_LIFETIME / 720
+
+-- How much is already drawn when you arrive.
+--
+-- Starting at nothing is the honest reading of "only moves when you crank" and
+-- it is the wrong thing to do: you get a blank screen with no indication that it
+-- is waiting for you rather than broken. A partial figure says what this is and
+-- invites the crank, and winding it back to nothing is still available and still
+-- picks a new shape.
+local STARTING_PEN_TIME <const> = FIGURE_LIFETIME * 0.3
+
+-- The spacing between points along the curve. Small enough that the line reads
+-- as a curve rather than a polygon, large enough not to draw the same pixel
+-- repeatedly.
+local TRACE_STEP <const> = 0.08
+
+-- How quickly the pendulums lose their travel. The figure spirals inward as it
+-- is drawn, which is what a harmonograph does, and because amplitude comes from
+-- each point's own position along the curve rather than from a clock, the spiral
+-- is part of the shape rather than something that happens to it.
 local DAMPING_RATE <const> = 0.06
+local STARTING_AMPLITUDE <const> = 96
 
 local Harmonograph = {
     name = "Spirograph",
-    trace = {},
-    maximumTraceLength = 700,
     frequencyX = 2.0,
     frequencyY = 3.0,
     phaseOffset = 0,
 }
 
 function Harmonograph:reset()
-    self.trace = {}
-    self.penTime = 0
-    self.dampingTime = 0
+    self.penTime = STARTING_PEN_TIME
 end
 
 function Harmonograph:draw(context)
@@ -474,50 +502,45 @@ function Harmonograph:draw(context)
 
     local bass, mid, treble = Visualizers.bassMidTreble(context)
 
-    -- Restart the drawing when the pendulums have run out of travel, choosing
-    -- new frequencies from the music. Simple ratios give closed elegant loops,
-    -- so the values are kept small and near whole numbers.
-    if self.dampingTime > FIGURE_LIFETIME then
+    -- The crank, and nothing else, moves the pen. Signed, so back is back.
+    self.penTime = self.penTime + context.crankDelta * PEN_TIME_PER_CRANK_DEGREE
+
+    if self.penTime <= 0 then
         self.penTime = 0
-        self.dampingTime = 0
-        self.trace = {}
+
+        -- Wound all the way back, so there is nothing on screen and this is the
+        -- one moment the shape can change without the change being visible as a
+        -- shape morphing under a line that is already drawn. Simple ratios give
+        -- closed elegant loops, so the values are kept small and near whole
+        -- numbers.
         self.frequencyX = 1 + math.floor(bass * 4) + (mid * 0.02)
         self.frequencyY = 1 + math.floor(treble * 5) + (bass * 0.02)
         self.phaseOffset = mid * math.pi
+    elseif self.penTime > FIGURE_LIFETIME then
+        self.penTime = FIGURE_LIFETIME
     end
-
-    -- Two clocks rather than one.
-    --
-    -- The pen's position along the curve is what the crank advances, and the
-    -- damping that shrinks the figure runs on its own steady clock. These used
-    -- to be the same value, and the effect was that cranking to draw the figure
-    -- faster also wound it down toward nothing sooner. The control meant to give
-    -- you more of the drawing was taking it away instead.
-    --
-    -- The restart stays on the damping clock, because what actually runs out is
-    -- the pendulums' travel and damping is what describes that. So cranking now
-    -- draws more of a figure inside the life it already had, rather than
-    -- shortening that life.
-    self.penTime = self.penTime + PEN_SPEED_PER_FRAME + math.abs(context.crankDelta) / 400
-    self.dampingTime = self.dampingTime + PEN_SPEED_PER_FRAME
 
     local centreX = context.width / 2
     local centreY = context.height / 2
-    local damping = math.exp(-self.dampingTime * DAMPING_RATE)
-    local amplitude = 96 * damping
+    local frequencyX = self.frequencyX
+    local frequencyY = self.frequencyY
+    local phaseOffset = self.phaseOffset
 
-    local penX = centreX + math.sin(self.penTime * self.frequencyX) * amplitude
-    local penY = centreY + math.sin(self.penTime * self.frequencyY + self.phaseOffset) * amplitude * 0.62
+    local previousX, previousY
+    local pointTime = 0
 
-    table.insert(self.trace, { x = penX, y = penY })
-    while #self.trace > self.maximumTraceLength do
-        table.remove(self.trace, 1)
-    end
+    while pointTime <= self.penTime do
+        local amplitude = STARTING_AMPLITUDE * math.exp(-pointTime * DAMPING_RATE)
+        local pointX = centreX + math.sin(pointTime * frequencyX) * amplitude
+        local pointY = centreY
+            + math.sin(pointTime * frequencyY + phaseOffset) * amplitude * 0.62
 
-    for pointIndex = 2, #self.trace do
-        local previousPoint = self.trace[pointIndex - 1]
-        local currentPoint = self.trace[pointIndex]
-        graphics.drawLine(previousPoint.x, previousPoint.y, currentPoint.x, currentPoint.y)
+        if previousX then
+            graphics.drawLine(previousX, previousY, pointX, pointY)
+        end
+        previousX, previousY = pointX, pointY
+
+        pointTime = pointTime + TRACE_STEP
     end
 end
 
@@ -534,10 +557,10 @@ Visualizers.register(Harmonograph)
 -- native to a 1-bit screen, because moire needs hard pixels and looks worse
 -- with any smoothing at all.
 --
--- Shown as Screened Porch, which is where most people have actually seen this.
+-- Shown as Garden o' Sound.
 
 local MoireInterference = {
-    name = "Screened Porch",
+    name = "Garden o' Sound",
     rotationAngle = 0.3,
 }
 

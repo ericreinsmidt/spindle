@@ -57,8 +57,8 @@ and find where the quiet intro ends without hunting for it.
 **Gapless transitions.** The next track is prepared ten seconds early on a muted
 channel and swapped in at the boundary.
 
-**Eight visualizers**, full screen. All but one do something with the crank, so
-it becomes part of the picture rather than staying a control.
+**Eight visualizers**, seven of which you can play with. The crank steers a
+flock and winds a drawing machine.
 
 **Playlists**, written as `.m3u` files on your Mac. They are pointers at tracks
 already in the library rather than second copies of them.

@@ -347,10 +347,10 @@ The first batch:
 | Visualizer | What it does |
 |---|---|
 | Haring, a Chladni figure | The nodal patterns of a vibrating plate, traced as an interpolated contour rather than filled cells. Mode numbers follow the spectrum continuously with a slow drift on top. Line width comes from the local steepness of the plate, so the figure swells where nodal lines converge, between 10 and 34 pixels, with loudness widening the whole thing |
-| Spirograph, a harmonograph | Two damped pendulums tracing a curve. Frequencies come from spectral peaks and the drawing restarts on a beat |
+| Spirograph, a harmonograph | Two damped pendulums tracing a curve, frequencies taken from spectral peaks. The only one driven entirely by the crank: the pen goes as far as you wind it and winding back retracts the line, which needs the figure to be a pure function of pen position rather than a trail of collected points, because a trail is history and history cannot be wound backwards |
 | Triforce, a cellular automaton | Rule 30 or 110 scrolling upward, each new row seeded by the current spectrum. Pure 1-bit with no dithering needed |
 | Koi, a boids flock | The crank steers an attractor the flock chases. Bass tightens cohesion, treble increases separation, beats scatter the flock |
-| Screened Porch, a moire | Two line grids overlaid, one rotated by the crank, spacing driven by the bands. The cheapest to draw and the most native to a 1-bit screen |
+| Garden o' Sound, a moire | Two line grids overlaid, one rotated by the crank, spacing driven by the bands. The cheapest to draw and the most native to a 1-bit screen |
 | Slime, a physarum colony | Physarum agents laying pheromone trails toward a food source the crank moves |
 | Spectrum, and Maigasa which is the same bands around a circle | The readable ones, for when the others are being decorative |
 

@@ -16,3 +16,6 @@ library/
 
 # Source music, if anyone ever puts it inside the project folder.
 Music/
+
+# The design document. Kept for my own reference rather than published.
+DESIGN.md

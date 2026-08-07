@@ -7,10 +7,10 @@
 </picture>
 
 <p>
-  <img alt="License: 0BSD" src="https://img.shields.io/badge/license-0BSD-FFC833">
+  <img alt="License: 0BSD" src="https://img.shields.io/badge/license-0BSD-7C3AED">
   <img alt="Platform: Playdate" src="https://img.shields.io/badge/platform-Playdate-FFC833">
   <img alt="Playdate SDK 3.1.1" src="https://img.shields.io/badge/Playdate%20SDK-3.1.1-FFC833">
-  <img alt="Lua 5.4" src="https://img.shields.io/badge/Lua-5.4-FFC833">
+  <img alt="Lua 5.4" src="https://img.shields.io/badge/Lua-5.4-7C3AED">
 </p>
 
 </div>
@@ -23,146 +23,212 @@ is not a cost to be minimized here. It is the point. Spindle is meant to sit on
 a desk or a nightstand showing something worth looking at while a record plays,
 with the crank as a control you reach for rather than a novelty.
 
-Music is prepared on a Mac by an ingest tool that converts audio to ADPCM,
-dithers album art to 1-bit, and precomputes the spectrum and beat data the
-visualizers run on. The device reads a single index at startup and does no
-scanning of its own.
+<!--
+  The demo video goes here.
 
-[DESIGN.md](DESIGN.md) has the hardware measurements this is built on and what
-each one forced.
+  It cannot be committed, because GitHub strips <video> tags from README files
+  and only plays video that lives in its own assets area. To add it: open this
+  file on github.com, click the pencil, drag spindle-demo-web.mp4 onto this
+  line, and commit. GitHub uploads it and leaves a URL of the form
+  https://github.com/<owner>/spindle/assets/<numbers>/<uuid>
 
-## Screenshots
-
-<div align="center">
-
-| | |
-|:--:|:--:|
-| <img src="docs/screenshots/library.png" width="400" alt="The album list"> | <img src="docs/screenshots/nowplaying.gif" width="400" alt="Now playing"> |
-| **Library.** Albums and playlists in one list. | **Now playing.** Artwork, spectrum, and the track's own waveform as the scrub bar. |
-| <img src="docs/screenshots/haring.gif" width="400" alt="The Haring visualizer"> | <img src="docs/screenshots/koi.gif" width="400" alt="The Koi visualizer"> |
-| **Haring.** The nodal pattern of a vibrating plate, its mode numbers following the spectrum. | **Koi.** A flock chasing a target the crank steers around the screen. |
-
-</div>
+  Leave that URL bare on a line of its own. That exact form is what the renderer
+  turns into a player; wrapping it in a markdown link turns it back into a link.
+-->
 
 ## What it does
 
-**Albums, not files.** The landing screen is a list of records. Picking a track
-plays the whole album from there, because that is how a record works.
+**Albums, not files.** The landing screen is a list of records with their cover
+art, three to a screen, scrolled with the crank or the buttons. Opening one
+shows its tracks. Picking a track plays the whole album from there rather than
+that song on its own, because that is how a record works.
 
-**Crank scrubbing.** Seeking costs about a millisecond, and the scrub bar is the
-track's own waveform, so you can see the shape of a song while moving through it
-and find where the quiet intro ends without hunting for it.
+**Crank scrubbing.** On the now playing screen the crank moves the playhead, and
+the bar it moves along is the track's own waveform rather than a plain line. You
+can see the shape of a song while moving through it, so finding the point where
+a quiet intro ends is something you aim at rather than hunt for. Seeking costs
+about a millisecond, which is what makes this possible at all.
 
-**Gapless transitions.** The next track is prepared ten seconds early on a muted
-channel and swapped in at the boundary.
+**Nine visualizers**, full screen, reached with up from now playing and stepped
+through with up again. Eight of them do something with the crank: it steers a
+flock, winds a drawing machine forward and back, rotates a moire grid, tears the
+album cover apart a strip at a time. The ninth is a plain spectrum, which
+deliberately ignores it.
 
-**Nine visualizers**, eight of which you can play with. The crank steers a
-flock, winds a drawing machine, and tears the album cover apart a strip at a
-time.
+**Gapless transitions.** The next track is opened ten seconds early and left
+decoding on a silent channel, so the boundary is a swap between two players that
+are both already running rather than a file being opened.
 
-**Playlists**, written as `.m3u` files on your Mac. They are pointers at tracks
-already in the library rather than second copies of them.
+**Playlists**, written as ordinary `.m3u` files on your Mac. They appear above
+the albums in the same list and play the same way. They are pointers at tracks
+already in the library rather than second copies of them, so a playlist costs
+about eighty bytes a track instead of several megabytes.
 
-**Resume on launch**, including whether it should start playing again, which
-depends on how the last session ended.
+**Three play modes and three repeat modes.** In order, shuffle tracks within the
+record, or shuffle albums, which picks a whole record at random and plays it
+through in order. Repeat is a separate axis: off, album, or track. Shuffling
+decides what order things come in, repeating decides what happens when the list
+runs out, and every combination of the two means something.
 
-**Pocket mode**, which locks input and stops redrawing while the music keeps
-going.
+**Resume on launch.** It comes back to the track and the position it left, and
+whether it starts playing again depends on how the last session ended. Quitting
+deliberately comes back paused; a flat battery or a lock comes back playing.
 
-## Why there is a build step
+**Pocket mode**, on a hold of B. Input is ignored and the screen stops being
+redrawn while the music keeps going. A and B held together for two seconds
+unlocks it, with a ring filling to show the hold registering.
 
-The Playdate cannot usefully seek an MP3. Seeking is a linear scan costing
-roughly 89.5 milliseconds per second of seek target, measured on hardware, so
-jumping four minutes into a track blocks for about twenty seconds and trips the
-run loop stall detector. ADPCM seeks in about one millisecond, which is what
-makes crank scrubbing possible at all.
+## Requirements
 
-ADPCM in Playdate's `.pda` container cannot carry ID3 tags, and the SDK provides
-no FFT. So metadata and frequency analysis both have to be prepared in advance.
-That turned out to be an advantage rather than a cost: the analysis can be far
-better than anything the device could compute live, and it costs the device one
-table lookup per frame.
+**On the Playdate**, nothing beyond the device itself. Everything is prepared in
+advance and the app does no work on startup beyond reading one index file.
 
-## Getting started
+**On a Mac**, to convert your music:
 
-Requires the Playdate SDK at `~/Developer/PlaydateSDK`, or set
-`PLAYDATE_SDK_PATH`. Ingest needs `ffmpeg` on the path, plus `numpy`, `Pillow`
-and `mutagen`.
+| | |
+|---|---|
+| Python 3 | with `numpy`, `Pillow` and `mutagen` |
+| ffmpeg | supplies both `ffmpeg` and `ffprobe`, which must be on your `PATH` |
+| Playdate SDK | for `pdc`, which is the only thing that can produce the `.pda` audio and `.pdi` image formats |
 
 ```bash
-./build.sh                                          # compile
-./build.sh sim                                      # compile and open in the Simulator
-./build.sh device                                   # compile and copy to a Playdate in data disk mode
-python3 tools/ingest.py <music folder> <output>     # prepare a library
+brew install ffmpeg
+pip3 install numpy Pillow mutagen
 ```
 
-Copy the ingest output into `/Data/com.reinsmidt.spindle/` on the device, then
-copy `Spindle.pdx` into `/Games/`.
+The SDK is expected at `~/Developer/PlaydateSDK`. Set `PLAYDATE_SDK_PATH` if
+yours is somewhere else, or pass `--sdk` to the ingest tool.
 
-## Preparing music
+Of the three Python packages, `mutagen` is the one you could technically do
+without. Ingest catches its absence and carries on, but without it no tags can
+be read, so every track falls back to its filename and every album needs a
+`cover.jpg` beside it. Install it.
 
-The source folder holds one folder per album. Track order and metadata come from
-the files' own tags, and an optional `_album.m3u` sidecar can override them.
+## Preparing your music
+
+One folder per album. Track order and titles come from the files' own tags.
 
 ```
 music/
   Beastie Boys/
     Ill Communication/
       06 Sabotage.mp3
-      cover.jpg          optional, otherwise embedded art is used
-      _album.m3u         optional, overrides tags and sets track order
+      cover.jpg          optional, otherwise embedded artwork is used
+      _album.m3u         optional, overrides the tags and sets the track order
 playlists/
   Long Drive.m3u         optional
 ```
 
-A playlist names tracks that already live in albums. Paths inside it are tried
-absolute, relative to the playlist, relative to the source root, then relative
-to the music folder, and finally matched on filename alone, so a playlist
-exported from another application generally works. Anything that cannot be
-resolved is reported and skipped rather than taking the playlist down with it.
-
-Rebuilding one part without redoing everything:
+Anything ffmpeg can decode works as a source: MP3, FLAC, M4A, WAV.
 
 ```bash
-python3 tools/ingest.py --only artwork  <music folder> <output>
-python3 tools/ingest.py --only analysis <music folder> <output>
+python3 tools/ingest.py <music folder> <output folder>
 ```
 
-A full run reconverts every track. Rebuilding all 122 analysis files in the test
-library took 54 seconds and 9.2 MB of copying, against a full run and a
-gigabyte.
+That converts every track to ADPCM, dithers each cover to 1-bit at three sizes,
+runs an FFT and beat detection over every track, and writes a single index:
+
+```
+music/<album>/<track>.pda      the audio
+art/<album>.pdi                the cover at 140 px, for now playing
+art/<album>-thumb.pdi          the same at 60 px, for the album list
+art/<album>-full.pdi           the same at 240 px, for the Sleeve visualizer
+analysis/<album>/<track>.bin   spectrum, onsets and waveform
+library.json                   the index, read once at startup
+```
+
+Copy that whole folder into `/Data/com.reinsmidt.spindle/` on the device.
+
+A full run reconverts everything, which is a gigabyte of copying if all you
+changed was a picture. Two flags rebuild one part and leave the rest alone:
+
+```bash
+python3 tools/ingest.py --only artwork  <music folder> <output folder>
+python3 tools/ingest.py --only analysis <music folder> <output folder>
+```
+
+Rebuilding all 122 analysis files in the test library took 54 seconds and 9.2 MB
+of copying. Neither flag rewrites `library.json`, because neither one gathers
+everything a complete index needs.
+
+### Playlists
+
+A playlist is an `.m3u` naming tracks that already live in your albums. Paths
+inside it are tried absolute, then relative to the playlist, then relative to
+the source root, then relative to the music folder, and finally matched on
+filename alone, so a playlist exported from another application generally works
+without editing. Anything that cannot be resolved is reported and skipped rather
+than taking the playlist down with it.
+
+## Installing the app
+
+Requires the Playdate SDK. Set `PLAYDATE_SDK_PATH` if it is not at
+`~/Developer/PlaydateSDK`.
+
+```bash
+./build.sh              # compile to Spindle.pdx
+./build.sh sim          # compile and open in the Simulator
+./build.sh device       # compile, mount a connected Playdate, and copy it across
+```
+
+`./build.sh device` puts the device into data disk mode over USB by itself, so
+the only manual step is the cable. It copies the app but not your music; the
+ingest output goes across separately as above.
 
 ## Controls
 
 | Screen | Crank | Buttons |
 |---|---|---|
-| Library | Scrolls | Up and down move, A opens, B jumps to what is playing |
-| Now playing | Scrubs | A pauses, left and right change track, up opens the visualizer, down cycles play mode, hold down for repeat, B goes back, hold B for pocket mode |
-| Visualizer | Drives the visualizer | Left and right seek ten seconds, up switches visualizer, down or B returns |
+| Album list | Scrolls | Up and down move, A opens, B jumps to what is playing |
+| Track list | Scrolls | Up and down move, A plays the album from here, B goes back |
+| Now playing | Scrubs the track | A pauses, left and right change track, up opens the visualizers, down cycles play mode, hold down for repeat mode, B goes back, hold B for pocket mode |
+| Visualizers | Drives the visualizer | Left and right seek ten seconds, A pauses, up switches visualizer, down or B returns |
 | Pocket | Nothing | Everything ignored except A and B held together for two seconds |
+
+## Why there is a build step
+
+The Playdate cannot usefully seek an MP3. Seeking is a linear scan costing
+roughly 89.5 milliseconds per second of seek target, measured on hardware, so
+jumping four minutes into a track blocks for about twenty seconds and trips the
+run loop's stall detector. ADPCM seeks in about one millisecond, which is what
+makes crank scrubbing possible at all.
+
+ADPCM in Playdate's `.pda` container cannot carry ID3 tags, and the SDK provides
+no FFT, only a single amplitude reading per frame. So both the metadata and the
+frequency data have to be prepared in advance. That turned out to be an
+advantage rather than a cost: the analysis can be far better than anything the
+device could compute live, and it costs the device one table lookup per frame.
 
 ## Layout
 
 ```
-Source/              the Lua app
-  main.lua             entry point and screen routing
-  library.lua          loads the index, resolves playlists
-  analysis.lua         reads the binary spectrum and beat files
-  player.lua           playback, seeking, gapless transitions
-  session.lua          remembers what was playing across launches
-  typography.lua       the two fonts and the text helpers
-  artwork.lua          keeps album art out of the display inversion
-  glyphs.lua           the playback state marks, as bitmaps
-  screen_*.lua         the four screens
-  visualizers.lua      plugin registry and the per frame context
-  viz_*.lua            the visualizers themselves, Sleeve among them
+Source/                the Lua app
+  main.lua               entry point and screen routing
+  library.lua            loads the index, resolves playlists
+  analysis.lua           reads the binary spectrum and beat files
+  player.lua             playback, seeking, gapless transitions
+  session.lua            remembers what was playing across launches
+  typography.lua         the two fonts and the text helpers
+  artwork.lua            keeps album art out of the display inversion
+  glyphs.lua             the playback state marks, as bitmaps
+  screen_*.lua           the four screens
+  visualizers.lua        plugin registry and the per frame context
+  viz_*.lua              the visualizers themselves
 tools/
-  ingest.py              music folder in, Playdate data out
-  make_launcher_art.py   launcher art, cover marks and the README logo
-assets/              source artwork
-docs/                README images
-notes/               raw logs from the hardware investigation
+  ingest.py                 music folder in, Playdate data out
+  make_launcher_art.py      launcher art, cover marks and the README logos
+  make_demo_video.py        assembles the demo video from recorded frames
+  make_readme_animations.py animated WebP, for anywhere that cannot play video
+  demo-recorder/            the input harness that records those frames
+assets/                source artwork
+docs/                  the README logos
+notes/                 raw logs from the hardware investigation
 ```
+
+Adding a `viz_*.lua` file that registers itself is all it takes to add a
+visualizer. It receives a table holding the current spectrum, whether this frame
+is on a beat, how far the crank moved, the playhead, and the album, and it
+knows nothing else about the app.
 
 ## Regenerating the artwork
 
@@ -172,7 +238,7 @@ python3 tools/make_launcher_art.py
 
 Reads `assets/adapter-45rpm.webp` and writes the launcher icon and card, the 60
 frames of the card's rotation, the adapter marks the app draws where a cover is
-missing, and the two README logos. Generated files are committed so the project
+missing, and the two logos above. Generated files are committed, so the project
 builds without running this first.
 
 Two constants at the top control how the launcher art comes out:

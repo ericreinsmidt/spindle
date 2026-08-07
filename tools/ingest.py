@@ -873,8 +873,14 @@ def main():
     argument_parser.add_argument(
         "--sdk",
         type=Path,
-        default=Path.home() / "Developer" / "PlaydateSDK",
-        help="Playdate SDK location, used to find pdc",
+        # PLAYDATE_SDK_PATH is what build.sh reads and what the SDK's own
+        # installer sets, so honoring it here as well means someone who has
+        # installed the SDK anywhere other than the default has to say so once
+        # rather than once per tool.
+        default=Path(os.environ.get(
+            "PLAYDATE_SDK_PATH", Path.home() / "Developer" / "PlaydateSDK")),
+        help="Playdate SDK location, used to find pdc. Defaults to "
+             "PLAYDATE_SDK_PATH, or ~/Developer/PlaydateSDK",
     )
     argument_parser.add_argument(
         "--only",

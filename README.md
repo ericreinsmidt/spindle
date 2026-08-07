@@ -7,10 +7,10 @@
 </picture>
 
 <p>
-  <img alt="License: 0BSD" src="https://img.shields.io/badge/license-0BSD-7C3AED">
-  <img alt="Platform: Playdate" src="https://img.shields.io/badge/platform-Playdate-FFC833">
-  <img alt="Playdate SDK 3.1.1" src="https://img.shields.io/badge/Playdate%20SDK-3.1.1-FFC833">
-  <img alt="Lua 5.4" src="https://img.shields.io/badge/Lua-5.4-7C3AED">
+  <a href="https://github.com/ericreinsmidt/spindle/releases/latest"><img alt="Download the latest release" src="https://img.shields.io/github/v/release/ericreinsmidt/spindle?label=download&color=FFC833"></a>
+  <a href="LICENSE"><img alt="License: 0BSD" src="https://img.shields.io/badge/license-0BSD-7C3AED"></a>
+  <a href="https://play.date"><img alt="Platform: Playdate" src="https://img.shields.io/badge/platform-Playdate-3F3F46"></a>
+  <img alt="Built against Playdate SDK 3.1.1" src="https://img.shields.io/badge/Playdate%20SDK-3.1.1-3F3F46">
 </p>
 
 </div>

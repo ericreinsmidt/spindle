@@ -8,10 +8,10 @@ has to be baked into the file. The screenshots carry a 6 pixel yellow rounded
 border with transparent corners, added when the images are assembled, so they
 sit on either GitHub theme.
 
-Animated GIF with transparency and frame delta optimisation fight each other if
+Animated GIF with transparency and frame delta optimization fight each other if
 the disposal method is wrong. With disposal 2, restore to background, every frame
 has to be stored whole and now playing came to 438 KB. With disposal 1, leave in
-place, the optimiser stores only the changed region and the corner transparency
+place, the optimizer stores only the changed region and the corner transparency
 survives from the first frame, which is 24 KB for the same animation. Use
 disposal 1.
 

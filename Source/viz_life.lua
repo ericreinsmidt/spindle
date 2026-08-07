@@ -17,7 +17,7 @@ local graphics <const> = playdate.graphics
 -- An elementary cellular automaton scrolling upward, one new row per frame,
 -- with each new row seeded from the current spectrum. Pure 1-bit: every pixel
 -- is either on or off and no dithering is involved, which is why it looks
--- right on this screen in a way it would not in colour.
+-- right on this screen in a way it would not in color.
 --
 -- Rather than redrawing the whole history every frame, the previous frame's
 -- image is blitted upward by one row and only the new row is drawn. That turns
@@ -70,12 +70,12 @@ function CellularAutomaton:reset()
     self.ruleNumber = 30
 end
 
--- Apply the rule to one cell given its three neighbours. An elementary rule is
+-- Apply the rule to one cell given its three neighbors. An elementary rule is
 -- a number from 0 to 255 whose bits say what each of the eight possible
--- neighbourhoods produces.
-function CellularAutomaton:applyRule(leftCell, centreCell, rightCell)
-    local neighbourhoodIndex = leftCell * 4 + centreCell * 2 + rightCell
-    return (self.ruleNumber >> neighbourhoodIndex) & 1
+-- neighborhoods produces.
+function CellularAutomaton:applyRule(leftCell, centerCell, rightCell)
+    local neighborhoodIndex = leftCell * 4 + centerCell * 2 + rightCell
+    return (self.ruleNumber >> neighborhoodIndex) & 1
 end
 
 function CellularAutomaton:draw(context)
@@ -128,7 +128,7 @@ function CellularAutomaton:draw(context)
         nextRow[math.random(columnCount)] = 1
     end
 
-    -- Bass widens the seed at the centre, which thickens the growth.
+    -- Bass widens the seed at the center, which thickens the growth.
     if bass > 0.5 then
         nextRow[columnCount // 2] = 1
     end
@@ -184,7 +184,7 @@ Visualizers.register(CellularAutomaton)
 -- ---------------------------------------------------------------------------
 --
 -- A flock following three rules: steer toward the average position of nearby
--- neighbours, steer away from ones that are too close, and match their average
+-- neighbors, steer away from ones that are too close, and match their average
 -- heading. The crank steers an attractor that the flock chases, which makes
 -- this the visualizer you play with rather than watch.
 --
@@ -227,7 +227,7 @@ function Boids:draw(context)
     local cohesionStrength = 0.0016 + bass * 0.004
     local separationStrength = 0.05 + treble * 0.12
     local separationDistanceSquared = 150 + treble * 400
-    local neighbourDistanceSquared = 2600
+    local neighborDistanceSquared = 2600
 
     -- A beat scatters the flock, which then re-forms.
     local scatterImpulse = context.beat and (1.6 + mid * 2.4) or 0
@@ -238,7 +238,7 @@ function Boids:draw(context)
     for firstIndex = 1, boidCount do
         local boid = boids[firstIndex]
 
-        local neighbourCount = 0
+        local neighborCount = 0
         local sumX, sumY = 0, 0
         local sumVelocityX, sumVelocityY = 0, 0
         local separationX, separationY = 0, 0
@@ -250,8 +250,8 @@ function Boids:draw(context)
                 local differenceY = other.y - boid.y
                 local distanceSquared = differenceX * differenceX + differenceY * differenceY
 
-                if distanceSquared < neighbourDistanceSquared then
-                    neighbourCount = neighbourCount + 1
+                if distanceSquared < neighborDistanceSquared then
+                    neighborCount = neighborCount + 1
                     sumX = sumX + other.x
                     sumY = sumY + other.y
                     sumVelocityX = sumVelocityX + other.velocityX
@@ -265,14 +265,14 @@ function Boids:draw(context)
             end
         end
 
-        if neighbourCount > 0 then
-            -- Cohesion, toward the middle of the neighbours.
-            boid.velocityX = boid.velocityX + (sumX / neighbourCount - boid.x) * cohesionStrength
-            boid.velocityY = boid.velocityY + (sumY / neighbourCount - boid.y) * cohesionStrength
+        if neighborCount > 0 then
+            -- Cohesion, toward the middle of the neighbors.
+            boid.velocityX = boid.velocityX + (sumX / neighborCount - boid.x) * cohesionStrength
+            boid.velocityY = boid.velocityY + (sumY / neighborCount - boid.y) * cohesionStrength
 
-            -- Alignment, matching the neighbours' average heading.
-            boid.velocityX = boid.velocityX + (sumVelocityX / neighbourCount - boid.velocityX) * 0.04
-            boid.velocityY = boid.velocityY + (sumVelocityY / neighbourCount - boid.velocityY) * 0.04
+            -- Alignment, matching the neighbors' average heading.
+            boid.velocityX = boid.velocityX + (sumVelocityX / neighborCount - boid.velocityX) * 0.04
+            boid.velocityY = boid.velocityY + (sumVelocityY / neighborCount - boid.velocityY) * 0.04
         end
 
         -- Separation, away from anyone too close.
@@ -323,7 +323,7 @@ Visualizers.register(Boids)
 
 
 -- ---------------------------------------------------------------------------
--- Slime mould
+-- Slime mold
 -- ---------------------------------------------------------------------------
 --
 -- Physarum: agents that lay a trail behind them and steer toward the strongest
@@ -383,7 +383,7 @@ local WANDER_TURN <const> = 0.3
 local FOOD_CORE_DISTANCE <const> = 28
 local FOOD_SCATTER_TURN <const> = 2.0
 
-local SlimeMould = {
+local SlimeMold = {
     name = "Slime",
     agentCount = 170,
     gridColumnCount = 80,
@@ -391,7 +391,7 @@ local SlimeMould = {
     foodAngle = 0,
 }
 
-function SlimeMould:reset()
+function SlimeMold:reset()
     self.agents = {}
     for agentNumber = 1, self.agentCount do
         -- Start spread across the screen facing outward from the middle. A
@@ -417,7 +417,7 @@ function SlimeMould:reset()
 end
 
 -- Sample the trail strength at a point, in screen coordinates.
-function SlimeMould:senseAt(x, y)
+function SlimeMold:senseAt(x, y)
     local column = math.floor(x / 400 * self.gridColumnCount)
     local row = math.floor(y / 240 * self.gridRowCount)
     if column < 0 or column >= self.gridColumnCount or row < 0 or row >= self.gridRowCount then
@@ -426,7 +426,7 @@ function SlimeMould:senseAt(x, y)
     return self.trailGrid[row * self.gridColumnCount + column + 1]
 end
 
-function SlimeMould:draw(context)
+function SlimeMold:draw(context)
     if not self.agents then
         self:reset()
     end
@@ -551,7 +551,7 @@ function SlimeMould:draw(context)
 
     -- Decay the sensing grid only every third frame. Touching four thousand
     -- cells every frame is the single most expensive thing here, and the
-    -- behaviour is indistinguishable at a third of the rate.
+    -- behavior is indistinguishable at a third of the rate.
     self.framesSinceClear = self.framesSinceClear + 1
     if self.framesSinceClear % 3 == 0 then
         for cellIndex = 1, #trailGrid do
@@ -575,4 +575,4 @@ function SlimeMould:draw(context)
     graphics.drawCircleAtPoint(foodX, foodY, 6)
 end
 
-Visualizers.register(SlimeMould)
+Visualizers.register(SlimeMold)

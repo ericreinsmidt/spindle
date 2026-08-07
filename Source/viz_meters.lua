@@ -72,7 +72,7 @@ Visualizers.register(SpectrumBars)
 
 -- Everything here is sized so the whole figure fits on the screen.
 --
--- The screen is 240 tall, so anything drawn from the centre has 120 pixels
+-- The screen is 240 tall, so anything drawn from the center has 120 pixels
 -- before it runs off the top and bottom. The spokes previously reached 134 at
 -- full band value and the ring on a beat sat at up to 142, so both were being
 -- cut off by the edge, and the ring in particular read as two arcs at the sides
@@ -96,8 +96,8 @@ end
 function RadialSpectrum:draw(context)
     self.rotation = self.rotation + 0.004 + context.crankDelta / 700
 
-    local centreX = context.width / 2
-    local centreY = context.height / 2
+    local centerX = context.width / 2
+    local centerY = context.height / 2
     local innerRadius = 26 + context.energy * 20
 
     -- Each band is drawn twice, mirrored across the vertical axis, so the
@@ -118,8 +118,8 @@ function RadialSpectrum:draw(context)
         local spokeLength = innerRadius + (bandValue / 255) * SPOKE_REACH
 
         local spokeAngle = self.rotation + (spokeNumber / spokeCount) * math.pi * 2
-        local pointX = centreX + math.cos(spokeAngle) * spokeLength
-        local pointY = centreY + math.sin(spokeAngle) * spokeLength
+        local pointX = centerX + math.cos(spokeAngle) * spokeLength
+        local pointY = centerY + math.sin(spokeAngle) * spokeLength
 
         if previousX then
             graphics.drawLine(previousX, previousY, pointX, pointY)
@@ -127,7 +127,7 @@ function RadialSpectrum:draw(context)
             firstX, firstY = pointX, pointY
         end
 
-        graphics.drawLine(centreX, centreY, pointX, pointY)
+        graphics.drawLine(centerX, centerY, pointX, pointY)
 
         previousX, previousY = pointX, pointY
     end
@@ -138,7 +138,7 @@ function RadialSpectrum:draw(context)
     end
 
     if context.beat then
-        graphics.drawCircleAtPoint(centreX, centreY, BEAT_RING_RADIUS)
+        graphics.drawCircleAtPoint(centerX, centerY, BEAT_RING_RADIUS)
     end
 end
 

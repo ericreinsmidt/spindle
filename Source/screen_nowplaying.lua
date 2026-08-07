@@ -62,7 +62,7 @@ local SPECTRUM_MAXIMUM_HEIGHT <const> = 46
 -- the height goes back where it came from rather than being left as a gap.
 local WAVEFORM_LEFT <const> = 6
 local WAVEFORM_WIDTH <const> = 388
-local WAVEFORM_CENTRE_Y <const> = 176
+local WAVEFORM_CENTER_Y <const> = 176
 local WAVEFORM_HALF_HEIGHT <const> = 22
 
 -- The playhead marker extends a little beyond the waveform so it stays visible
@@ -71,7 +71,7 @@ local PLAYHEAD_OVERHANG <const> = 6
 
 local TIME_ROW_Y <const> = 216
 
--- The playback glyphs share the time row, centred between the elapsed time on
+-- The playback glyphs share the time row, centered between the elapsed time on
 -- the left and the total on the right. That band was already there and empty,
 -- which is the whole reason the state row above it could go.
 --
@@ -158,7 +158,7 @@ end
 -- line drawn inside it. That reads clearly against both the solid played
 -- section and the outlined unplayed section.
 local function drawPlayheadMarker(playheadX)
-    local markerTop = WAVEFORM_CENTRE_Y - WAVEFORM_HALF_HEIGHT - PLAYHEAD_OVERHANG
+    local markerTop = WAVEFORM_CENTER_Y - WAVEFORM_HALF_HEIGHT - PLAYHEAD_OVERHANG
     local markerHeight = (WAVEFORM_HALF_HEIGHT + PLAYHEAD_OVERHANG) * 2
 
     graphics.setColor(graphics.kColorWhite)
@@ -187,8 +187,8 @@ local function drawWaveformScrubBar(analysis, positionInSeconds, lengthInSeconds
     if not analysis or #analysis.waveform == 0 then
         -- With no waveform available, fall back to a plain progress bar so the
         -- screen still shows where you are in the track.
-        graphics.drawRect(WAVEFORM_LEFT, WAVEFORM_CENTRE_Y - 5, WAVEFORM_WIDTH, 10)
-        graphics.fillRect(WAVEFORM_LEFT, WAVEFORM_CENTRE_Y - 5, WAVEFORM_WIDTH * playedFraction, 10)
+        graphics.drawRect(WAVEFORM_LEFT, WAVEFORM_CENTER_Y - 5, WAVEFORM_WIDTH, 10)
+        graphics.fillRect(WAVEFORM_LEFT, WAVEFORM_CENTER_Y - 5, WAVEFORM_WIDTH * playedFraction, 10)
     else
         local pointCount = #analysis.waveform
         local pointSpacing = WAVEFORM_WIDTH / pointCount
@@ -200,9 +200,9 @@ local function drawWaveformScrubBar(analysis, positionInSeconds, lengthInSeconds
             local barWidth = math.max(1, pointSpacing - 1)
 
             if pointIndex <= playedPointCount then
-                graphics.fillRect(barLeft, WAVEFORM_CENTRE_Y - barHalfHeight, barWidth, barHalfHeight * 2)
+                graphics.fillRect(barLeft, WAVEFORM_CENTER_Y - barHalfHeight, barWidth, barHalfHeight * 2)
             else
-                graphics.drawRect(barLeft, WAVEFORM_CENTRE_Y - barHalfHeight, barWidth, barHalfHeight * 2)
+                graphics.drawRect(barLeft, WAVEFORM_CENTER_Y - barHalfHeight, barWidth, barHalfHeight * 2)
             end
         end
     end
@@ -211,7 +211,7 @@ local function drawWaveformScrubBar(analysis, positionInSeconds, lengthInSeconds
 end
 
 
--- Draw what playback is doing, as a centred row of glyphs.
+-- Draw what playback is doing, as a centered row of glyphs.
 --
 -- Text was tried first and the trouble with it is that the interesting states
 -- are the unusual ones, and text gives them no more weight than the ordinary

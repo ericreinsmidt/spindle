@@ -81,7 +81,7 @@ local function setUpSystemMenu()
 
     -- Audio stops when the device locks, so the three minute auto-lock would
     -- silently kill playback part way through a record. It is disabled by
-    -- default and exposed here in case someone wants the normal behaviour.
+    -- default and exposed here in case someone wants the normal behavior.
     systemMenu:addCheckmarkMenuItem("keep awake", true, function(shouldKeepAwake)
         playdate.setAutoLockDisabled(shouldKeepAwake)
     end)
@@ -109,7 +109,7 @@ graphics.setBackgroundColor(graphics.kColorWhite)
 --
 -- This happens at the display level rather than in any drawing code, so nothing
 -- has to know about it and it costs nothing. The alternative would have been
--- clearing to black and setting every draw colour to white, which means touching
+-- clearing to black and setting every draw color to white, which means touching
 -- every screen and every visualizer for something available for free.
 --
 -- It was briefly a system menu checkbox. It is not a preference: it is what

@@ -34,7 +34,7 @@ local SESSION_FORMAT_VERSION <const> = 1
 -- How often the position is written while music is playing. Writing every frame
 -- would hammer the flash for no benefit, and writing only on the way out would
 -- lose a whole track's worth of position whenever the battery gave out. Thirty
--- seconds is close enough that you come back somewhere you recognise.
+-- seconds is close enough that you come back somewhere you recognize.
 local HEARTBEAT_INTERVAL_MILLISECONDS <const> = 30 * 1000
 
 local lastSaveInMilliseconds = 0

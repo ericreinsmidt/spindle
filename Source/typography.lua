@@ -70,14 +70,14 @@ function Typography.truncateToWidth(font, text, availableWidth)
 end
 
 
--- Draw text at a left edge, vertically centred inside a band.
+-- Draw text at a left edge, vertically centered inside a band.
 --
 -- Centring by hand was where the old layout went wrong. Rows drew their text at
 -- the top of the band and left the leftover space underneath, so the highlight
 -- looked like it sat lower than the text it was highlighting. Measuring the
 -- font rather than assuming a height fixes it for every font and every band
 -- size at once.
-function Typography.drawCentredInBand(font, text, left, bandTop, bandHeight)
+function Typography.drawCenteredInBand(font, text, left, bandTop, bandHeight)
     graphics.setFont(font)
     graphics.drawText(text, left, bandTop + (bandHeight - font:getHeight()) // 2)
 end

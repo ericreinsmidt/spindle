@@ -356,7 +356,7 @@ function Player.addCrankScrub(crankChangeInDegrees)
 end
 
 
--- Choose what plays after the current entry, honouring both the play mode and
+-- Choose what plays after the current entry, honoring both the play mode and
 -- the repeat mode. Returns the playback list position to move to, or nil when
 -- playback should stop.
 --

@@ -6,7 +6,7 @@
 -- The first version was built from fillTriangle, drawCircleAtPoint and arcs
 -- approximated with ten degree line segments, and it looked ragged for a reason
 -- that is worth writing down: on a 1-bit screen with no antialiasing, a rotated
--- triangle or a stepped arc lands wherever the rasteriser decides, and the
+-- triangle or a stepped arc lands wherever the rasterizer decides, and the
 -- result is stray single pixels and edges that wobble. Nothing about the code
 -- was wrong. The approach was.
 --

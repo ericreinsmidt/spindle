@@ -5,12 +5,12 @@ Generate Spindle's launcher artwork from a photograph of a 45 RPM adapter.
 The source is a red adapter on a white background, which separates cleanly:
 the plastic reads around (219, 21, 52) and the background is pure white, so
 thresholding on redness rather than brightness isolates the shape exactly. That
-matters because a plain greyscale conversion would turn the red into a mid grey
+matters because a plain grayscale conversion would turn the red into a mid gray
 and lose the edges.
 
 Everything is rendered from the full resolution source and scaled down at the
 last moment, so the curves stay clean through rotation rather than accumulating
-artefacts from repeatedly resampling an already small bitmap.
+artifacts from repeatedly resampling an already small bitmap.
 
 Because the adapter has three fold rotational symmetry, a rotation of 120
 degrees returns it to where it started, so the animation only needs frames
@@ -63,7 +63,7 @@ RENDER_INVERTED = False
 #
 # The launcher draws cards over its own striped background, so a cut out card
 # lets those stripes run through the artwork instead of sitting on a solid
-# block. Whether the launcher honours a mask on a card at all is the thing this
+# block. Whether the launcher honors a mask on a card at all is the thing this
 # is here to find out, and it can only be answered on the device.
 RENDER_TRANSPARENT_BACKGROUND = True
 
@@ -89,10 +89,10 @@ TICKS_PER_FRAME = 1
 def load_adapter_mask():
     """
     Load the source photograph and reduce it to a mask of the adapter: black
-    where the plastic is, white everywhere else, centred on the axis it should
+    where the plastic is, white everywhere else, centered on the axis it should
     rotate about.
 
-    Centring is the part that matters. Using the bounding box centre makes the
+    Centring is the part that matters. Using the bounding box center makes the
     adapter wobble when it turns, because the curved arms do not sit
     symmetrically inside their bounding box. The centroid, meaning the average
     position of every pixel of plastic, is exactly the rotational axis for a
@@ -103,7 +103,7 @@ def load_adapter_mask():
     pixels = numpy.asarray(source, dtype=numpy.int16)
 
     # Redness separates the plastic from the white background far better than
-    # brightness does, because red converts to a mid grey.
+    # brightness does, because red converts to a mid gray.
     redness = pixels[:, :, 0] - (pixels[:, :, 1] + pixels[:, :, 2]) // 2
     isPlastic = redness > REDNESS_THRESHOLD
 
@@ -125,7 +125,7 @@ def load_adapter_mask():
 
     mask = Image.fromarray(numpy.where(isPlastic, 0, 255).astype(numpy.uint8), mode="L")
 
-    # Paste so the centroid lands exactly at the centre of the square canvas.
+    # Paste so the centroid lands exactly at the center of the square canvas.
     squared = Image.new("L", (canvasSide, canvasSide), 255)
     squared.paste(mask, (
         int(round(canvasSide / 2 - centroidX)),
@@ -163,10 +163,10 @@ def to_one_bit(image):
     # background, which is a mistake that looks like the mask simply not working.
     paper_value = 0 if RENDER_INVERTED else 255
 
-    greyscale = one_bit.convert("L")
-    transparency = greyscale.point(lambda value: 0 if value == paper_value else 255)
+    grayscale = one_bit.convert("L")
+    transparency = grayscale.point(lambda value: 0 if value == paper_value else 255)
 
-    return Image.merge("RGBA", (greyscale, greyscale, greyscale, transparency))
+    return Image.merge("RGBA", (grayscale, grayscale, grayscale, transparency))
 
 
 def render_adapter(mask, target_size, rotation_degrees):
@@ -211,7 +211,7 @@ def build_card(mask, rotation_degrees):
 
     draw = ImageDraw.Draw(card)
 
-    # Centre the wordmark on the actual ink rather than on the text origin.
+    # Center the wordmark on the actual ink rather than on the text origin.
     # draw.text positions by the font's ascender line, which sits well above the
     # visible letters, so passing a y of half the card height leaves the word
     # noticeably low. textbbox reports where the pixels really land.
@@ -279,7 +279,7 @@ def build_readme_logo(mask, ink):
 
     canvas = canvas.resize((README_LOGO_WIDTH, height), Image.LANCZOS)
 
-    # The greyscale becomes the alpha: where the artwork is dark the logo is
+    # The grayscale becomes the alpha: where the artwork is dark the logo is
     # opaque, and the paper it was drawn on becomes nothing at all.
     transparency = ImageChops.invert(canvas)
     solid = Image.new("L", canvas.size, 0 if ink == "black" else 255)

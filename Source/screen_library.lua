@@ -142,7 +142,7 @@ end
 --
 -- bandTop is the top of the highlight itself rather than an offset into it, and
 -- the contents function is handed the band it has to sit inside. Everything
--- inside then centres itself against measured font heights. The previous
+-- inside then centers itself against measured font heights. The previous
 -- version drew text at a fixed offset from the top and let the leftover space
 -- collect underneath, which made the highlight look like it sat lower than the
 -- row it belonged to.
@@ -474,7 +474,7 @@ local function drawTrackList()
         end
 
         drawRow(bandTop, TRACK_ROW_HEIGHT, trackIndex == selectedTrackIndex, function()
-            Typography.drawCentredInBand(Typography.body,
+            Typography.drawCenteredInBand(Typography.body,
                 string.format("%2d.", trackIndex),
                 TRACK_NUMBER_LEFT, bandTop, TRACK_ROW_HEIGHT)
 
@@ -486,12 +486,12 @@ local function drawTrackList()
                 titleText = titleText .. "   " .. (entry.album.artist or "")
             end
 
-            Typography.drawCentredInBand(Typography.body,
+            Typography.drawCenteredInBand(Typography.body,
                 Typography.truncateToWidth(Typography.body, titleText, titleWidth),
                 TRACK_TITLE_LEFT, bandTop, TRACK_ROW_HEIGHT)
 
             local durationText = Library.formatDuration(track.duration)
-            Typography.drawCentredInBand(Typography.body, durationText,
+            Typography.drawCenteredInBand(Typography.body, durationText,
                 CONTENT_RIGHT_EDGE - Typography.body:getTextWidth(durationText),
                 bandTop, TRACK_ROW_HEIGHT)
         end)

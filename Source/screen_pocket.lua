@@ -39,7 +39,7 @@ ScreenPocket.ownsItsOwnClearing = true
 
 local UNLOCK_HOLD_MILLISECONDS <const> = 2000
 
-local RING_CENTRE_Y <const> = 214
+local RING_CENTER_Y <const> = 214
 local RING_RADIUS <const> = 11
 
 local SCREEN_WIDTH <const> = 400
@@ -81,12 +81,12 @@ end
 --
 -- Each point is kept only if its angle falls inside the swept part, so the ring
 -- is exactly as clean part way round as it is when complete.
-local function drawProgressRing(centreX, centreY, radius, fraction)
+local function drawProgressRing(centerX, centerY, radius, fraction)
     local sweptRadians = fraction * math.pi * 2
 
     local function plotIfSwept(pointX, pointY)
         -- Measured clockwise from straight up, which is where filling starts.
-        local angle = math.atan(pointX - centreX, centreY - pointY)
+        local angle = math.atan(pointX - centerX, centerY - pointY)
         if angle < 0 then
             angle = angle + math.pi * 2
         end
@@ -102,14 +102,14 @@ local function drawProgressRing(centreX, centreY, radius, fraction)
         local decision = 1 - ringRadius
 
         while x >= y do
-            plotIfSwept(centreX + x, centreY + y)
-            plotIfSwept(centreX + y, centreY + x)
-            plotIfSwept(centreX - x, centreY + y)
-            plotIfSwept(centreX - y, centreY + x)
-            plotIfSwept(centreX + x, centreY - y)
-            plotIfSwept(centreX + y, centreY - x)
-            plotIfSwept(centreX - x, centreY - y)
-            plotIfSwept(centreX - y, centreY - x)
+            plotIfSwept(centerX + x, centerY + y)
+            plotIfSwept(centerX + y, centerY + x)
+            plotIfSwept(centerX - x, centerY + y)
+            plotIfSwept(centerX - y, centerY + x)
+            plotIfSwept(centerX + x, centerY - y)
+            plotIfSwept(centerX + y, centerY - x)
+            plotIfSwept(centerX - x, centerY - y)
+            plotIfSwept(centerX - y, centerY - x)
 
             y = y + 1
             if decision < 0 then
@@ -193,6 +193,6 @@ function ScreenPocket.draw()
     -- doing something rather than being ignored. A ring rather than a bar,
     -- because it reads at a glance without having to find either end of it.
     if progress > 0 then
-        drawProgressRing(SCREEN_WIDTH // 2, RING_CENTRE_Y, RING_RADIUS, progress)
+        drawProgressRing(SCREEN_WIDTH // 2, RING_CENTER_Y, RING_RADIUS, progress)
     end
 end

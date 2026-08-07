@@ -33,7 +33,7 @@ What was established, in order:
   and the same levels in the source, which is what a sparse piano ballad with
   gaps between vocal phrases looks like.
 
-  Clusters of very large sample to sample steps, above 1.0 in a normalised
+  Clusters of very large sample to sample steps, above 1.0 in a normalized
   signal, exist at 89.6s, 123.9s and 163.95s. They are present in the source as
   well, and this is a heavily limited master, so they are content.
 

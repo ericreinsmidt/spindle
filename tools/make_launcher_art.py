@@ -35,6 +35,15 @@ OUTPUT_FOLDER = PROJECT_FOLDER / "Source" / "launcher"
 DOCS_FOLDER = PROJECT_FOLDER / "docs"
 README_LOGO_WIDTH = 720
 
+# Empty space above and below the README logo, as a share of its height.
+#
+# Baked into the image rather than done with markup. GitHub strips style
+# attributes, so margin is not available, and the alternative is a row of <br>
+# tags whose height depends on whatever font the page happens to be using. Space
+# inside the picture is exact, scales with the logo if its width ever changes,
+# and there is nothing in it for a sanitizer to remove.
+README_LOGO_PADDING_SHARE = 0.18
+
 # GitHub's social preview, the picture that shows up when the repository is
 # linked anywhere. GitHub asks for 1280 by 640 and warns below 640 by 320.
 #
@@ -315,7 +324,12 @@ def build_readme_logo(mask, ink):
     # opaque, and the paper it was drawn on becomes nothing at all.
     transparency = ImageChops.invert(canvas)
     solid = Image.new("L", canvas.size, 0 if ink == "black" else 255)
-    return Image.merge("RGBA", (solid, solid, solid, transparency))
+    logo = Image.merge("RGBA", (solid, solid, solid, transparency))
+
+    padding = round(height * README_LOGO_PADDING_SHARE)
+    padded = Image.new("RGBA", (logo.width, logo.height + padding * 2), (0, 0, 0, 0))
+    padded.paste(logo, (0, padding))
+    return padded
 
 
 def build_social_banner(mask, ink=None, background=None, rotation=None):

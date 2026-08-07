@@ -268,10 +268,20 @@ rather than on a rectangle of its own.
 
 [0BSD](LICENSE). Do what you like with it.
 
-Two things in a built copy are not mine to license that way, and neither is in
-this repository. The Roobert fonts belong to Panic and ship with the SDK, so
-`build.sh` copies them in from there before each compile rather than keeping
-them here. And the SDK itself is Panic's, used under its own agreement.
+That covers everything in this repository. It does not cover one thing inside a
+built copy.
+
+`Spindle.pdx` contains `fonts/Roobert-11-Bold.pft` and `Roobert-20-Medium.pft`,
+compiled from fonts that belong to Panic and ship with the SDK. Building and
+releasing a `.pdx` containing them is what the SDK agreement is for: it permits
+distributable parts of the SDK to be incorporated into a program you have made.
+What it does not permit is passing the fonts on in source form, which is why
+they are not in this repository and `build.sh` copies them out of your own SDK
+before each compile.
+
+So if you download a release, the app is yours to do anything with under 0BSD,
+except the two font files inside it, which remain Panic's under the SDK
+agreement.
 
 Playdate is a registered trademark of Panic. This is a personal project and is
 not affiliated with or endorsed by them.

@@ -23,7 +23,11 @@ is not a cost to be minimized here. It is the point. Spindle is meant to sit on
 a desk or a nightstand showing something worth looking at while a record plays,
 with the crank as a control you reach for rather than a novelty.
 
+<div align="center">
+
 https://github.com/user-attachments/assets/cc334202-1a13-46ae-b45b-e2ca2f58eea3
+
+</div>
 
 <!--
   The demo video goes here.
@@ -65,11 +69,17 @@ the albums in the same list and play the same way. They are pointers at tracks
 already in the library rather than second copies of them, so a playlist costs
 about eighty bytes a track instead of several megabytes.
 
-**Three play modes and three repeat modes.** In order, shuffle tracks within the
-record, or shuffle albums, which picks a whole record at random and plays it
-through in order. Repeat is a separate axis: off, album, or track. Shuffling
-decides what order things come in, repeating decides what happens when the list
-runs out, and every combination of the two means something.
+**Three play modes and three repeat modes.** Play modes are in order, shuffle
+tracks, which shuffles the record you are on, and shuffle albums, which plays the
+current record in order and then puts on another one at random. Repeat modes are
+off, album and track.
+
+The two are separate settings but they are not independent, and the repeat mode
+wins where they disagree. Repeat track replays the current track at every
+boundary, which means the play mode has nothing left to decide. Repeat album
+restarts the current record when it ends, which beats shuffle albums putting on
+a different one, on the grounds that asking for this record again is a more
+specific request than asking for any record next.
 
 **Resume on launch.** It comes back to the track and the position it left, and
 whether it starts playing again depends on how the last session ended. Quitting

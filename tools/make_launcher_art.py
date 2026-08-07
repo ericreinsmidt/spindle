@@ -47,11 +47,7 @@ SOCIAL_BANNER_INK = (255, 255, 255)
 SOCIAL_BANNER_BACKGROUND = (17, 17, 17)
 SOCIAL_TAGLINE = "An album-first music player for the Playdate"
 
-# The adapter has three fold symmetry with a lobe tip every 120 degrees, sitting
-# at 31, 150 and 270 degrees in the source. Turning it 60 brings one of them to
-# straight down, which is the way the shape reads as deliberate rather than as
-# however it happened to be lying.
-SOCIAL_BANNER_ROTATION = 60
+
 
 # The adapter on its own, used in the app wherever a cover is wanted and there
 # is none: beside a playlist, which has no artwork of its own, and beside an
@@ -90,6 +86,20 @@ RENDER_TRANSPARENT_BACKGROUND = True
 # about -2 on the background to 203 on the plastic, so anything in the middle
 # separates them with room to spare.
 REDNESS_THRESHOLD = 60
+
+# The angle everything sits at when it is not turning.
+#
+# The adapter has three fold symmetry with a lobe tip every 120 degrees, sitting
+# at 31, 150 and 270 degrees in the source artwork, so turning it 60 brings one
+# to straight down. That reads as placed rather than as however the shape
+# happened to be lying, and it applies everywhere: the card, the icon, the cover
+# marks, the README logos and the social banner, so no two of them disagree
+# about which way up the thing is.
+#
+# The launcher animation adds its own rotation on top of this, which changes
+# where the loop starts and nothing else, since the loop is 120 degrees long and
+# the shape repeats every 120 degrees.
+ADAPTER_REST_ROTATION = 60
 
 # Frames covering the 120 degrees of rotational symmetry. More frames make the
 # motion smoother without changing its speed, because each step covers less
@@ -194,7 +204,8 @@ def render_adapter(mask, target_size, rotation_degrees):
     Rotate the full resolution mask and scale it down to the requested size.
     Rotating before downsampling is what keeps the curved arms smooth.
     """
-    rotated = mask.rotate(rotation_degrees, resample=Image.BICUBIC, fillcolor=255)
+    rotated = mask.rotate(
+        rotation_degrees + ADAPTER_REST_ROTATION, resample=Image.BICUBIC, fillcolor=255)
     return rotated.resize((target_size, target_size), Image.LANCZOS)
 
 
@@ -281,7 +292,8 @@ def build_readme_logo(mask, ink):
     canvas = Image.new("L", (README_LOGO_WIDTH * scale, height * scale), 255)
 
     adapter_size = (height - 10) * scale
-    adapter = mask.rotate(0, resample=Image.BICUBIC, fillcolor=255)
+    adapter = mask.rotate(
+        ADAPTER_REST_ROTATION, resample=Image.BICUBIC, fillcolor=255)
     adapter = adapter.resize((adapter_size, adapter_size), Image.LANCZOS)
     canvas.paste(adapter, (10 * scale, 5 * scale))
 
@@ -317,7 +329,7 @@ def build_social_banner(mask, ink=None, background=None, rotation=None):
     """
     ink = ink or SOCIAL_BANNER_INK
     background = background or SOCIAL_BANNER_BACKGROUND
-    rotation = SOCIAL_BANNER_ROTATION if rotation is None else rotation
+    rotation = ADAPTER_REST_ROTATION if rotation is None else rotation
 
     scale = 3
     width, height = (side * scale for side in SOCIAL_BANNER_SIZE)
@@ -327,6 +339,7 @@ def build_social_banner(mask, ink=None, background=None, rotation=None):
     adapter = ImageChops.invert(
         mask.rotate(rotation, resample=Image.BICUBIC, fillcolor=255)
             .resize((adapter_size, adapter_size), Image.LANCZOS))
+
 
     draw = ImageDraw.Draw(canvas)
     wordmark_font = load_wordmark_font(round(height * 0.15))
@@ -382,7 +395,9 @@ def build_cover_mark(mask, size):
     adapter_size = size - inset * 2
 
     square = Image.new("L", (size, size), 255)
-    adapter = mask.resize((adapter_size, adapter_size), Image.LANCZOS)
+    adapter = mask.rotate(
+        ADAPTER_REST_ROTATION, resample=Image.BICUBIC, fillcolor=255
+    ).resize((adapter_size, adapter_size), Image.LANCZOS)
     square.paste(adapter, (inset, inset))
 
     return square.convert("1", dither=Image.NONE)

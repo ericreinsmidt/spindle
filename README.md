@@ -43,33 +43,33 @@ https://github.com/user-attachments/assets/cc334202-1a13-46ae-b45b-e2ca2f58eea3
 
 ## What it does
 
-**Albums, not files.** The landing screen is a list of records with their cover
+**Albums, not files:** the landing screen is a list of records with their cover
 art, three to a screen, scrolled with the crank or the buttons. Opening one
 shows its tracks. Picking a track plays the whole album from there rather than
 that song on its own, because that is how a record works.
 
-**Crank scrubbing.** On the now playing screen the crank moves the playhead, and
+**Crank scrubbing:** on the now playing screen the crank moves the playhead, and
 the bar it moves along is the track's own waveform rather than a plain line. You
 can see the shape of a song while moving through it, so finding the point where
 a quiet intro ends is something you aim at rather than hunt for. Seeking costs
 about a millisecond, which is what makes this possible at all.
 
-**Nine visualizers**, full screen, reached with up from now playing and stepped
+**Nine visualizers:** full screen, reached with up from now playing and stepped
 through with up again. Eight of them do something with the crank: it steers a
 flock, winds a drawing machine forward and back, rotates a moire grid, tears the
 album cover apart a strip at a time. The ninth is a plain spectrum, which
 deliberately ignores it.
 
-**Gapless transitions.** The next track is opened ten seconds early and left
+**Gapless transitions:** the next track is opened ten seconds early and left
 decoding on a silent channel, so the boundary is a swap between two players that
 are both already running rather than a file being opened.
 
-**Playlists**, written as ordinary `.m3u` files on your Mac. They appear above
+**Playlists:** written as ordinary `.m3u` files on your Mac. They appear above
 the albums in the same list and play the same way. They are pointers at tracks
 already in the library rather than second copies of them, so a playlist costs
 about eighty bytes a track instead of several megabytes.
 
-**Three play modes and three repeat modes.** Play modes are in order, shuffle
+**Three play modes and three repeat modes:** play modes are in order, shuffle
 tracks, which shuffles the record you are on, and shuffle albums, which plays the
 current record in order and then puts on another one at random. Repeat modes are
 off, album and track.
@@ -81,11 +81,11 @@ restarts the current record when it ends, which beats shuffle albums putting on
 a different one, on the grounds that asking for this record again is a more
 specific request than asking for any record next.
 
-**Resume on launch.** It comes back to the track and the position it left, and
+**Resume on launch:** it comes back to the track and the position it left, and
 whether it starts playing again depends on how the last session ended. Quitting
 deliberately comes back paused; a flat battery or a lock comes back playing.
 
-**Pocket mode**, on a hold of B. Input is ignored and the screen stops being
+**Pocket mode:** on a hold of B. Input is ignored and the screen stops being
 redrawn while the music keeps going. A and B held together for two seconds
 unlocks it, with a ring filling to show the hold registering.
 

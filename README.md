@@ -162,14 +162,47 @@ Rebuilding all 122 analysis files in the test library took 54 seconds and 9.2 MB
 of copying. Neither flag rewrites `library.json`, because neither one gathers
 everything a complete index needs.
 
+### Overriding an album's tags
+
+Drop an `_album.m3u` beside the audio. Anything it sets beats what the files'
+own tags say, which means fixing a wrong album title does not mean editing the
+audio.
+
+```
+#EXTALB:Ill Communication
+#EXTART:Beastie Boys
+#EXTYEAR:1994
+#EXTCOVER:cover.jpg
+06 Sabotage.mp3
+08 Sabrosa.mp3
+```
+
+Every line is optional. Listing filenames sets the track order, and listing none
+falls back to sorting the folder by filename, so a sidecar that only fixes a
+misspelled artist is two lines long.
+
 ### Playlists
 
-A playlist is an `.m3u` naming tracks that already live in your albums. Paths
-inside it are tried absolute, then relative to the playlist, then relative to
-the source root, then relative to the music folder, and finally matched on
-filename alone, so a playlist exported from another application generally works
-without editing. Anything that cannot be resolved is reported and skipped rather
-than taking the playlist down with it.
+A playlist is an `.m3u` in the `playlists` folder, naming tracks that already
+live in your albums. Its name comes from the filename, so `Long Drive.m3u`
+appears as Long Drive; there is no directive for it and therefore no way for the
+two to disagree.
+
+```
+music/Radiohead/The Bends/03 High and Dry.mp3
+../music/The xx/xx/08 Basic Space.mp3
+08 Basic Space.mp3
+```
+
+Those three lines are all valid, because each path is tried five ways: absolute,
+relative to the playlist, relative to the source root, relative to the music
+folder, and finally matched on filename alone. A playlist exported from another
+application generally works without editing. `#EXTINF` lines and any other
+comments are ignored, since the title and duration are read from the track
+itself rather than trusted from whatever wrote the playlist.
+
+Anything that cannot be resolved is reported and skipped rather than taking the
+whole playlist down with it.
 
 ## Installing the app
 

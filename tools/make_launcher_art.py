@@ -326,6 +326,19 @@ def build_readme_logo(mask, ink):
     solid = Image.new("L", canvas.size, 0 if ink == "black" else 255)
     logo = Image.merge("RGBA", (solid, solid, solid, transparency))
 
+    # Trimmed to where the artwork actually is before the space is added, so the
+    # gap above and below is equal.
+    #
+    # Padding the canvas alone does not do that. The adapter and the wordmark do
+    # not sit centered in the box they were composed in, so a symmetric margin
+    # around an asymmetric picture stays asymmetric: it came out 84 pixels above
+    # and 63 below. Only the vertical extent is trimmed. Cropping sideways as
+    # well would move the logo off center, since the wordmark makes it much
+    # wider than it is tall.
+    ink = logo.getbbox()
+    if ink:
+        logo = logo.crop((0, ink[1], logo.width, ink[3]))
+
     padding = round(height * README_LOGO_PADDING_SHARE)
     padded = Image.new("RGBA", (logo.width, logo.height + padding * 2), (0, 0, 0, 0))
     padded.paste(logo, (0, padding))

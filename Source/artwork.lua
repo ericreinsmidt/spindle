@@ -1,19 +1,23 @@
--- Drawing pictures so they stay pictures when the screen is inverted.
+-- Drawing pictures so they stay pictures on an inverted display.
 --
--- playdate.display.setInverted flips the whole display after everything has
--- been drawn, which is what makes it free: no drawing code has to know about it.
--- That is exactly right for text and line work, and wrong for a photograph. An
+-- Spindle runs white on black, set once at startup with
+-- playdate.display.setInverted. That flips the whole display after everything
+-- has been drawn, which is what makes it free: no drawing code has to know
+-- about it. It is right for type and line work, and wrong for a photograph. An
 -- inverted album cover is a negative, and a negative of a face does not read as
 -- a face.
 --
--- The fix is to flip the artwork on the way in, so the display's flip on the way
--- out cancels it and the cover comes out looking like a cover on a screen that
--- is otherwise white on black. kDrawModeInverted is the image draw mode that
--- does it, so this costs nothing beyond setting a mode either side of the draw.
+-- So covers are flipped on the way in, and the display's flip on the way out
+-- cancels it. kDrawModeInverted is the image draw mode that does it, so this
+-- costs nothing beyond setting a mode either side of the draw.
 --
 -- Album art is the only thing treated this way. Everything else on screen is
--- type or line work, which reads perfectly well either way round and is
--- supposed to follow the setting.
+-- type or line work, which is supposed to follow the setting.
+--
+-- This was a toggle for a while, with a flag saying which way round the display
+-- currently was and a branch in each of these. Inversion is now what the app
+-- looks like rather than a preference, so the flag could only ever hold one
+-- value and the branches have gone with it.
 
 import "CoreLibs/graphics"
 
@@ -21,53 +25,28 @@ Artwork = {}
 
 local graphics <const> = playdate.graphics
 
--- Whether the display is currently inverted. Tracked here rather than asked of
--- the display every time something is drawn, because the app is the only thing
--- that changes it and a field read is cheaper than a call into the firmware on
--- every frame.
-Artwork.displayIsInverted = false
 
-
-function Artwork.setDisplayInverted(shouldInvert)
-    Artwork.displayIsInverted = shouldInvert and true or false
-    playdate.display.setInverted(Artwork.displayIsInverted)
-end
-
-
--- Draw a picture the right way up whichever way round the screen is.
+-- Draw a picture the right way up on a display that is about to flip it.
 function Artwork.draw(image, left, top)
-    if Artwork.displayIsInverted then
-        graphics.setImageDrawMode(graphics.kDrawModeInverted)
-    else
-        graphics.setImageDrawMode(graphics.kDrawModeCopy)
-    end
-
+    graphics.setImageDrawMode(graphics.kDrawModeInverted)
     image:draw(left, top)
-
     graphics.setImageDrawMode(graphics.kDrawModeCopy)
 end
 
 
--- The colour a picture's background should be drawn in.
+-- The colours a picture's own background and foreground should be drawn in.
 --
--- These exist for the stand-in drawn when a record has no cover. It has to sit
--- on the same coloured ground as a real cover does, otherwise inverting the
--- screen would leave albums with artwork looking one way and albums without
--- looking the other, which is worse than either.
+-- These exist for the stand-in drawn when a record has no cover, so that it sits
+-- on the same coloured ground a real cover does. Without them, albums with
+-- artwork and albums without would read opposite ways round down a single list.
 --
--- Both are the opposite of what they say when the display is inverted, because
--- the display will flip them again before anyone sees them.
+-- Both are the opposite of what they say, because the display flips them again
+-- before anyone sees them. Paper drawn black arrives white.
 function Artwork.paperColor()
-    if Artwork.displayIsInverted then
-        return graphics.kColorBlack
-    end
-    return graphics.kColorWhite
+    return graphics.kColorBlack
 end
 
 
 function Artwork.inkColor()
-    if Artwork.displayIsInverted then
-        return graphics.kColorWhite
-    end
-    return graphics.kColorBlack
+    return graphics.kColorWhite
 end

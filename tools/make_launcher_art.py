@@ -23,7 +23,7 @@ converts the PNGs during the build.
 from pathlib import Path
 
 import numpy
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageChops, ImageDraw, ImageFont
 
 PROJECT_FOLDER = Path(__file__).parent.parent
 SOURCE_IMAGE_PATH = PROJECT_FOLDER / "assets" / "adapter-45rpm.webp"
@@ -36,6 +36,23 @@ CARD_WIDTH = 350
 WORDMARK_LEFT = 162
 CARD_HEIGHT = 155
 ICON_SIZE = 32
+
+# Whether the launcher art comes out white on black.
+#
+# The app itself runs inverted, so the card and icon match it rather than being
+# the one part of Spindle that is the other way round. Flip this to False to see
+# the black on white version again; nothing else needs changing, because the
+# inversion is applied at the very end after everything has been composed.
+RENDER_INVERTED = False
+
+# Whether the card and icon are cut out, leaving only the adapter and the
+# wordmark with nothing behind them.
+#
+# The launcher draws cards over its own striped background, so a cut out card
+# lets those stripes run through the artwork instead of sitting on a solid
+# block. Whether the launcher honours a mask on a card at all is the thing this
+# is here to find out, and it can only be answered on the device.
+RENDER_TRANSPARENT_BACKGROUND = True
 
 # How red a pixel has to be, measured as red minus the average of green and
 # blue, before it counts as part of the adapter. The sampled image ranges from
@@ -105,6 +122,40 @@ def load_adapter_mask():
     return squared
 
 
+def to_one_bit(image):
+    """
+    Finish an image: invert it if the art is being rendered white on black, then
+    reduce it to the 1-bit the launcher wants.
+
+    Inverting here rather than while composing means every part of the card is
+    built the same way whichever version is being made, so the adapter, the
+    wordmark and the background can never end up disagreeing about which way
+    round they are.
+
+    Dithering is off. These are solid shapes and type, and a dither pattern on
+    either would shimmer as the card animates rather than reading as tone.
+    """
+    if RENDER_INVERTED:
+        image = ImageChops.invert(image)
+
+    one_bit = image.convert("1", dither=Image.NONE)
+    if not RENDER_TRANSPARENT_BACKGROUND:
+        return one_bit
+
+    # Cut the paper away and leave the ink.
+    #
+    # Which value counts as paper depends on which way round the art is being
+    # rendered, so it is taken from the same switch rather than assumed to be
+    # white. Getting that backwards would cut out the artwork and keep the
+    # background, which is a mistake that looks like the mask simply not working.
+    paper_value = 0 if RENDER_INVERTED else 255
+
+    greyscale = one_bit.convert("L")
+    transparency = greyscale.point(lambda value: 0 if value == paper_value else 255)
+
+    return Image.merge("RGBA", (greyscale, greyscale, greyscale, transparency))
+
+
 def render_adapter(mask, target_size, rotation_degrees):
     """
     Rotate the full resolution mask and scale it down to the requested size.
@@ -163,7 +214,7 @@ def build_card(mask, rotation_degrees):
         fill=0,
     )
 
-    return card.convert("1", dither=Image.NONE)
+    return to_one_bit(card)
 
 
 def build_icon(mask, rotation_degrees=0):
@@ -171,7 +222,7 @@ def build_icon(mask, rotation_degrees=0):
     The 32 by 32 launcher icon: the adapter alone, since nothing else is
     legible at this size.
     """
-    return render_adapter(mask, ICON_SIZE, rotation_degrees).convert("1", dither=Image.NONE)
+    return to_one_bit(render_adapter(mask, ICON_SIZE, rotation_degrees))
 
 
 def main():

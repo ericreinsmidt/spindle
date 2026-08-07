@@ -10,11 +10,12 @@
 -- display is memory-in-pixel, so holding a picture costs nothing, and the frames
 -- this screen does not draw are the saving.
 --
--- Getting out needs a gesture a pocket will not produce by accident. Holding A
--- and B together for two seconds is the primary one, because two specific
--- buttons held for that long is not something a leg does. A full turn of the
--- crank works as well, for when it is already extended, and it is equally
--- unlikely to happen on its own.
+-- Getting out is holding A and B together for two seconds, because two specific
+-- buttons held that long is not something a leg does. A full turn of the crank
+-- was an unlock as well and has been taken out: anyone pocketing the device
+-- closes the crank first, so it was a gesture for a situation that does not
+-- arise, and it brought a whole idle-reset mechanism with it to stop partial
+-- turns accumulating.
 --
 -- The refresh rate is deliberately left alone. Dropping it is the obvious way to
 -- save more, and it would break gapless playback: the swap to the next track
@@ -38,20 +39,12 @@ ScreenPocket.ownsItsOwnClearing = true
 
 local UNLOCK_HOLD_MILLISECONDS <const> = 2000
 
--- A full revolution, in degrees. Accumulated as absolute movement so it does not
--- matter which way it is turned.
-local UNLOCK_CRANK_DEGREES <const> = 360
-
--- Crank progress is thrown away if the crank stops, so a pocket nudging it a few
--- degrees at a time over several minutes never adds up to an unlock.
-local CRANK_IDLE_RESET_MILLISECONDS <const> = 1200
+local RING_CENTRE_Y <const> = 214
+local RING_RADIUS <const> = 11
 
 local SCREEN_WIDTH <const> = 400
-local SCREEN_HEIGHT <const> = 240
 
 local unlockHoldStartedAtMilliseconds = nil
-local crankDegreesTurned = 0
-local lastCrankMovementAtMilliseconds = 0
 
 -- What was on screen the last time anything was drawn, so the frame can be
 -- skipped when it would come out identical.
@@ -61,8 +54,6 @@ local drawnUnlockFraction = -1
 
 function ScreenPocket.enter()
     unlockHoldStartedAtMilliseconds = nil
-    crankDegreesTurned = 0
-    lastCrankMovementAtMilliseconds = playdate.getCurrentTimeMilliseconds()
 
     -- Force the next frame to draw, whatever was on screen before.
     drawnTrackFile = nil
@@ -70,21 +61,65 @@ function ScreenPocket.enter()
 end
 
 
--- How far through the unlock gesture we are, zero to one. Whichever of the two
--- gestures is further along wins, so they can be used interchangeably without
--- either interfering with the other.
+-- How far through the unlock hold we are, zero to one.
 local function unlockProgress()
-    local nowInMilliseconds = playdate.getCurrentTimeMilliseconds()
-
-    local holdFraction = 0
-    if unlockHoldStartedAtMilliseconds then
-        holdFraction = (nowInMilliseconds - unlockHoldStartedAtMilliseconds)
-            / UNLOCK_HOLD_MILLISECONDS
+    if not unlockHoldStartedAtMilliseconds then
+        return 0
     end
 
-    local crankFraction = crankDegreesTurned / UNLOCK_CRANK_DEGREES
+    local heldFor = playdate.getCurrentTimeMilliseconds() - unlockHoldStartedAtMilliseconds
+    return math.min(1, heldFor / UNLOCK_HOLD_MILLISECONDS)
+end
 
-    return math.min(1, math.max(holdFraction, crankFraction))
+
+-- Draw part of a ring, filling clockwise from the top.
+--
+-- The points come from the midpoint circle algorithm, one octant worked out and
+-- mirrored into eight, which is what makes a circle on a pixel grid look round
+-- instead of lumpy. The first version stepped round in ten degree chunks joining
+-- them with drawLine, and at eleven pixels across that is a visible polygon.
+--
+-- Each point is kept only if its angle falls inside the swept part, so the ring
+-- is exactly as clean part way round as it is when complete.
+local function drawProgressRing(centreX, centreY, radius, fraction)
+    local sweptRadians = fraction * math.pi * 2
+
+    local function plotIfSwept(pointX, pointY)
+        -- Measured clockwise from straight up, which is where filling starts.
+        local angle = math.atan(pointX - centreX, centreY - pointY)
+        if angle < 0 then
+            angle = angle + math.pi * 2
+        end
+        if angle <= sweptRadians then
+            graphics.fillRect(pointX, pointY, 1, 1)
+        end
+    end
+
+    -- Two radii, so the ring has some weight to it.
+    for ringRadius = radius - 1, radius do
+        local x = ringRadius
+        local y = 0
+        local decision = 1 - ringRadius
+
+        while x >= y do
+            plotIfSwept(centreX + x, centreY + y)
+            plotIfSwept(centreX + y, centreY + x)
+            plotIfSwept(centreX - x, centreY + y)
+            plotIfSwept(centreX - y, centreY + x)
+            plotIfSwept(centreX + x, centreY - y)
+            plotIfSwept(centreX + y, centreY - x)
+            plotIfSwept(centreX - x, centreY - y)
+            plotIfSwept(centreX - y, centreY - x)
+
+            y = y + 1
+            if decision < 0 then
+                decision = decision + 2 * y + 1
+            else
+                x = x - 1
+                decision = decision + 2 * (y - x) + 1
+            end
+        end
+    end
 end
 
 
@@ -98,16 +133,6 @@ function ScreenPocket.update()
         unlockHoldStartedAtMilliseconds = unlockHoldStartedAtMilliseconds or nowInMilliseconds
     else
         unlockHoldStartedAtMilliseconds = nil
-    end
-
-    -- A full turn of the crank, in either direction.
-    local crankChange = math.abs(playdate.getCrankChange())
-    if crankChange > 0.5 then
-        crankDegreesTurned = crankDegreesTurned + crankChange
-        lastCrankMovementAtMilliseconds = nowInMilliseconds
-    elseif nowInMilliseconds - lastCrankMovementAtMilliseconds
-        > CRANK_IDLE_RESET_MILLISECONDS then
-        crankDegreesTurned = 0
     end
 
     if unlockProgress() >= 1 then
@@ -165,25 +190,9 @@ function ScreenPocket.draw()
     graphics.drawText(hint, (SCREEN_WIDTH - Typography.body:getTextWidth(hint)) // 2, 186)
 
     -- The ring fills as the gesture is held, so it is obvious that holding is
-    -- doing something rather than being ignored. It is drawn as a widening arc
-    -- from the top rather than a bar, because a ring reads at a glance without
-    -- having to find either end of it.
+    -- doing something rather than being ignored. A ring rather than a bar,
+    -- because it reads at a glance without having to find either end of it.
     if progress > 0 then
-        local centreX = SCREEN_WIDTH // 2
-        local centreY = SCREEN_HEIGHT - 26
-        local radius = 12
-
-        graphics.setLineWidth(3)
-        local previousX, previousY
-        for step = 0, math.floor(progress * 36) do
-            local radians = math.rad(-90 + step * 10)
-            local pointX = centreX + math.cos(radians) * radius
-            local pointY = centreY + math.sin(radians) * radius
-            if previousX then
-                graphics.drawLine(previousX, previousY, pointX, pointY)
-            end
-            previousX, previousY = pointX, pointY
-        end
-        graphics.setLineWidth(1)
+        drawProgressRing(SCREEN_WIDTH // 2, RING_CENTRE_Y, RING_RADIUS, progress)
     end
 end

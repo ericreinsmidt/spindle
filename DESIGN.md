@@ -22,6 +22,14 @@ pixels for the launcher list. In the launcher card it rotates at an actual 45
 revolutions per minute. Because the shape has three-fold rotational symmetry,
 only 120 degrees of animation frames are needed before the loop repeats.
 
+The card has no background. The launcher honours a mask on card art, which was
+not obvious and had to be tried, so the adapter and the wordmark sit directly on
+the launcher's own backdrop instead of on a solid rectangle. That backdrop is
+exactly 50 percent black in alternating single pixel rows, measured off a
+screenshot, so it reads as mid grey and solid black artwork has real contrast
+against it. Both the cut out and the solid versions, in either polarity, are two
+constants at the top of tools/make_launcher_art.py.
+
 ## Hardware constraints
 
 Every item here was measured on real hardware during Phase 0, not assumed.
@@ -30,7 +38,7 @@ Every item here was measured on real hardware during Phase 0, not assumed.
 |---|---|
 | Audio stops when the device is locked or the system menu opens | Playback only happens with the screen on. An in-app lock is required. Resume behaviour matters more than usual |
 | MP3 seeking is O(n), costing roughly 89.5 ms per second of seek target | MP3 is unusable for scrubbing. ADPCM seeks in about 1 ms |
-| There is no backlight. The display is reflective memory-in-pixel | A static screen is nearly free to hold, but dropping the refresh rate only saves about 22 percent of battery, so animation is affordable. Whether white on black reads better depends on the light you are in rather than on taste, so inverting is a system menu checkbox using `playdate.display.setInverted`. Album art is flipped on the way in when it is on, so the display's flip on the way out cancels and a cover never shows as a negative |
+| There is no backlight. The display is reflective memory-in-pixel | A static screen is nearly free to hold, but dropping the refresh rate only saves about 22 percent of battery, so animation is affordable. White on black is the default, and is a system menu checkbox using `playdate.display.setInverted` because whether it reads better depends on the light you are in rather than on taste. Album art is flipped on the way in when it is on, so the display's flip on the way out cancels and a cover never shows as a negative |
 | Drawing is bound by how much ink reaches the screen, not by arithmetic | Anything visual has to be timed on hardware. The Simulator runs where filling pixels is nearly free and will mislead you about which of two versions is faster |
 | The SDK provides no FFT, only a per-frame amplitude level | Frequency data has to be precomputed during ingest |
 | `getOffset` and `getLength` return wrong values on MP3 | Track the playhead locally. This stops mattering once everything is ADPCM |
@@ -178,15 +186,15 @@ button equivalent, because plenty of people leave the crank docked all the time.
 |---|---|---|
 | Library | Scrolls the list | Up and down move, A opens, B goes back |
 | Now playing | Scrubs the track | Left and right change track, up opens the fullscreen visualizer, down cycles play modes, holding down cycles repeat, B goes back, holding B enters pocket mode |
-| Pocket | A full turn unlocks | Everything is ignored except A and B held together for two seconds |
+| Pocket | Nothing | Everything is ignored except A and B held together for two seconds |
 | Fullscreen visualizer | Drives the visualizer, except on the waveform scope where it scrubs the track | Left and right seek by 10 seconds, down returns |
 
 To unlock from pocket mode, hold A and B together for two seconds while a
-progress ring fills. This works regardless of whether the crank is docked, and a
-pocket is very unlikely to press two specific buttons and hold them. A full
-crank revolution also unlocks, for people who happen to have it extended, and
-partial progress is thrown away after a second of stillness so that a pocket
-nudging the crank a few degrees at a time never adds up to an unlock.
+progress ring fills. A pocket is very unlikely to press two specific buttons and
+hold them. A full crank revolution was an unlock as well and has been removed:
+anyone pocketing the device closes the crank first, so it was a gesture for a
+situation that does not arise, and it needed an idle reset alongside it to stop
+partial turns accumulating over time.
 
 Pocket mode is entered by holding B on now playing. It shares that button
 because the screen has no spare one, and the system menu was the alternative and

@@ -320,6 +320,14 @@ function ScreenNowPlaying.update()
     -- Down cycles the play mode on a short press and the repeat mode on a hold.
     -- The play mode can only change on release, because until the button comes
     -- back up there is no way to tell which of the two was meant.
+    --
+    -- Acting on a release is only safe if this screen also saw the press. A
+    -- button pressed on another screen that switches here lands its release on
+    -- this screen, and without that check the release is read as a short press
+    -- that nobody made. All three of the ways in are affected: down and B both
+    -- leave the visualizer, B reaches here from the album list, and unlocking
+    -- pocket mode needs B held. So arriving here by any route fired an action
+    -- immediately on letting go.
     if playdate.buttonJustPressed(playdate.kButtonDown) then
         downPressedAtMilliseconds = playdate.getCurrentTimeMilliseconds()
         downHoldAlreadyFired = false
@@ -335,10 +343,11 @@ function ScreenNowPlaying.update()
     end
 
     if playdate.buttonJustReleased(playdate.kButtonDown) then
-        if not downHoldAlreadyFired then
+        local pressBeganHere = downPressedAtMilliseconds ~= nil
+        downPressedAtMilliseconds = nil
+        if pressBeganHere and not downHoldAlreadyFired then
             Player.cyclePlayMode()
         end
-        downPressedAtMilliseconds = nil
     end
 
     if playdate.buttonJustPressed(playdate.kButtonUp) then
@@ -368,8 +377,9 @@ function ScreenNowPlaying.update()
     end
 
     if playdate.buttonJustReleased(playdate.kButtonB) then
+        local pressBeganHere = backPressedAtMilliseconds ~= nil
         backPressedAtMilliseconds = nil
-        if not backHoldAlreadyFired then
+        if pressBeganHere and not backHoldAlreadyFired then
             return "library"
         end
     end

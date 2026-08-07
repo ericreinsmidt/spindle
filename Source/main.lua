@@ -94,25 +94,6 @@ local function setUpSystemMenu()
             ScreenVisualizer.writeTimingReport()
         end
     end)
-
-    -- White on black for the whole app.
-    --
-    -- This happens at the display level rather than in any drawing code, so
-    -- nothing has to know about it and it costs nothing. The alternative would
-    -- have been clearing to black and setting every draw colour to white, which
-    -- means touching every screen and every visualizer for a setting that can be
-    -- had for free.
-    --
-    -- It is a checkbox rather than a decision because a reflective screen with
-    -- no backlight behaves quite differently inverted depending on the light you
-    -- are sitting in, so it is worth being able to flip it and look.
-    --
-    -- It goes through artwork.lua rather than straight to the display, because
-    -- album covers have to be flipped on the way in so the display's flip on the
-    -- way out cancels. A negative of a face does not read as a face.
-    systemMenu:addCheckmarkMenuItem("invert", false, function(shouldInvert)
-        Artwork.setDisplayInverted(shouldInvert)
-    end)
 end
 
 
@@ -123,6 +104,22 @@ end
 playdate.display.setRefreshRate(30)
 playdate.setAutoLockDisabled(true)
 graphics.setBackgroundColor(graphics.kColorWhite)
+
+-- White on black, for the whole app, always.
+--
+-- This happens at the display level rather than in any drawing code, so nothing
+-- has to know about it and it costs nothing. The alternative would have been
+-- clearing to black and setting every draw colour to white, which means touching
+-- every screen and every visualizer for something available for free.
+--
+-- It was briefly a system menu checkbox. It is not a preference: it is what
+-- Spindle looks like. Album artwork is the one thing that has to be flipped back
+-- on the way in, which artwork.lua handles, because a negative of a face does
+-- not read as a face.
+--
+-- Set before the library is loaded, so the screen explaining a missing library
+-- is inverted too rather than being the one white thing anyone ever sees.
+playdate.display.setInverted(true)
 
 -- Seed the random number generator from the clock, so shuffle does not produce
 -- the same order on every launch.

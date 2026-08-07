@@ -214,18 +214,15 @@ end
 -- Stand in for a missing cover, drawn as a square with an outline and a centre
 -- hole that echoes the 45 adapter the app is named for.
 --
--- It flips exactly when a real cover would, so that a record without artwork
--- sits the same way round as one with it. Getting this wrong would be more
--- obvious than leaving it plain, because the two would disagree down a single
--- list.
-local function drawCoverPlaceholder(left, top, shouldFlip)
-    local paperColor = shouldFlip and graphics.kColorBlack or graphics.kColorWhite
-    local inkColor = shouldFlip and graphics.kColorWhite or graphics.kColorBlack
-
-    graphics.setColor(paperColor)
+-- It uses the same ground a real cover lands on, so that a record without
+-- artwork sits the same way round as one with it. Getting this wrong would be
+-- more obvious than leaving it plain, because the two would disagree down a
+-- single list.
+local function drawCoverPlaceholder(left, top)
+    graphics.setColor(Artwork.paperColor())
     graphics.fillRect(left, top, ALBUM_COVER_SIZE, ALBUM_COVER_SIZE)
 
-    graphics.setColor(inkColor)
+    graphics.setColor(Artwork.inkColor())
     graphics.drawRect(left, top, ALBUM_COVER_SIZE, ALBUM_COVER_SIZE)
 
     local centreX = left + ALBUM_COVER_SIZE / 2
@@ -313,30 +310,21 @@ local function drawAlbumList()
         local bandTop = ALBUM_LIST_TOP_EDGE + (visibleRow - 1) * ALBUM_ROW_HEIGHT
 
         drawRow(bandTop, ALBUM_ROW_HEIGHT, albumIndex == selectedAlbumIndex, function(isSelected)
-            -- A cover should look like a photograph, so on an inverted display
-            -- every one of them is flipped back rather than left as a negative.
+            -- Every cover is flipped, because the display flips the whole
+            -- screen again afterwards and a cover should look like a
+            -- photograph rather than a negative.
             --
-            -- On a normal display nothing is flipped and nothing needs to be,
-            -- including the highlighted row, where a light cover sitting in a
-            -- dark bar reads perfectly well.
-            --
-            -- The narrower rule of flipping only the highlighted row was tried
-            -- first, on the reasoning that the highlight bar comes out light and
-            -- is therefore the only place a cover has light ground to sit on.
-            -- That leaves the rest as negatives, which is the thing worth
-            -- avoiding in the first place.
-            local shouldFlipCover = Artwork.displayIsInverted
-
-            graphics.setImageDrawMode(shouldFlipCover
-                and graphics.kDrawModeInverted
-                or graphics.kDrawModeCopy)
-
+            -- Flipping only the highlighted row was tried first, on the
+            -- reasoning that its bar comes out light and is therefore the only
+            -- place a cover has light ground to sit on. That leaves every other
+            -- one a negative, which is the thing worth avoiding in the first
+            -- place.
             local coverTop = bandTop + (ALBUM_ROW_HEIGHT - ALBUM_COVER_SIZE) // 2
             local thumbnail = thumbnailForAlbum(album, albumIndex)
             if thumbnail then
-                thumbnail:draw(ALBUM_COVER_LEFT, coverTop)
+                Artwork.draw(thumbnail, ALBUM_COVER_LEFT, coverTop)
             else
-                drawCoverPlaceholder(ALBUM_COVER_LEFT, coverTop, shouldFlipCover)
+                drawCoverPlaceholder(ALBUM_COVER_LEFT, coverTop)
             end
 
             -- Put the text's own draw mode back, for both kinds of row rather

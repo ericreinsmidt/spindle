@@ -23,9 +23,10 @@ is not a cost to be minimized here. It is the point. Spindle is meant to sit on
 a desk or a nightstand showing something worth looking at while a record plays,
 with the crank as a control you reach for rather than a novelty.
 
+https://github.com/user-attachments/assets/cc334202-1a13-46ae-b45b-e2ca2f58eea3
+
 <!--
   The demo video goes here.
-
   It cannot be committed, because GitHub strips <video> tags from README files
   and only plays video that lives in its own assets area. To add it: open this
   file on github.com, click the pencil, drag spindle-demo-web.mp4 onto this

@@ -28,6 +28,26 @@ local sound <const> = playdate.sound
 -- away from the boundary where a stutter would be audible.
 local PREWARM_LEAD_IN_SECONDS <const> = 10
 
+-- How much audio each fileplayer keeps ahead of itself, in seconds.
+--
+-- Set rather than left to the SDK's default, which is short. The SDK's own
+-- description of the trade is that a shorter buffer cuts the latency of a
+-- setOffset call and "increases the chance of a buffer underrun", and an
+-- underrun is heard as a hitch in the music.
+--
+-- One second, chosen from a sweep run on the device: at 0.10 and 0.25 seconds
+-- four seeks produced two underruns each, and at 0.50, 1.00 and 2.00 they
+-- produced none. One second sits a stop above the smallest size that measured
+-- clean, which is worth having because the hitches turn up when storage is
+-- slowest, just after an install or a cold start, and that is exactly the case
+-- a sweep run on a warm device does not reproduce.
+--
+-- The cost is on the other side of the trade. Filling a one second buffer took
+-- 390 milliseconds against 85 at a quarter second. That is spent warming the
+-- next track, which happens ten seconds before it is needed, so there is a
+-- twenty five fold margin on it.
+local PLAYBACK_BUFFER_IN_SECONDS <const> = 1.0
+
 -- Crank scrubbing accumulates and commits on this interval rather than every
 -- frame. Committing a seek per frame hammered the storage layer badly enough
 -- to hard fault the device during Phase 0.
@@ -151,7 +171,7 @@ end
 -- The player itself is left at full volume, because muting the player stops it
 -- decoding. Channel volume is what gets adjusted.
 local function createPlayerForTrack(track, channelVolume)
-    local filePlayer = sound.fileplayer.new(track.file)
+    local filePlayer = sound.fileplayer.new(track.file, PLAYBACK_BUFFER_IN_SECONDS)
     if not filePlayer then
         return nil, nil
     end

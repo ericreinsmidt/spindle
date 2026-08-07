@@ -331,10 +331,8 @@ function visualizer:draw(context) end
 Adding a file makes it appear in the picker. That is what keeps a large gallery
 manageable.
 
-The crank can be a participant rather than just a control. No other Playdate
-music player uses it for anything except scrolling, so a visualizer you can play
-with is genuinely new, and it holds up to repeat viewing far better than one you
-only watch.
+The crank can be a participant rather than just a control, and a visualizer you
+can play with holds up to repeat viewing far better than one you only watch.
 
 A visualizer can also decline the crank and ask for it to be spent on scrubbing
 instead, by setting `scrubsWithCrank`. Only the waveform scope does, because it
@@ -367,10 +365,10 @@ pitch-shifts rather than time-stretching, so there is no usable speed control.
 Per-file resume positions survive as a small feature that helps any long track.
 
 MP3 support was cut. Seeking is O(n) in the seek target, which makes scrubbing
-impossible. It is worth noting that no shipping Playdate music player has solved
-this either. Soundpal has no seek function at all, Musik only restores saved
-positions, and Kicooya documents that some MP3 files simply will not play
-depending on their encoding.
+impossible. Before accepting that, other Playdate music players were looked at to
+check whether this was a limit of the platform or a mistake in our own use of it.
+None of them scrub either, which is what settled it: the constraint is the SDK's
+MP3 decoder, not anything we were doing wrong.
 
 The queue was cut, after playlists shipped and after living with the app for a
 while. It was in this document from the start, so the reasoning is worth keeping

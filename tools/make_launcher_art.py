@@ -29,6 +29,19 @@ PROJECT_FOLDER = Path(__file__).parent.parent
 SOURCE_IMAGE_PATH = PROJECT_FOLDER / "assets" / "adapter-45rpm.webp"
 OUTPUT_FOLDER = PROJECT_FOLDER / "Source" / "launcher"
 
+# Where the README's logo goes. Separate from the launcher art because it is a
+# different job: the launcher wants 1-bit at the exact size the device draws it,
+# and a README wants something large and smooth that reads on a web page.
+DOCS_FOLDER = PROJECT_FOLDER / "docs"
+README_LOGO_WIDTH = 720
+
+# The adapter on its own, used in the app wherever a cover is wanted and there
+# is none: beside a playlist, which has no artwork of its own, and beside an
+# album whose files carried none. Two sizes, matching the two places a cover is
+# drawn.
+COVER_MARK_FOLDER = PROJECT_FOLDER / "Source"
+COVER_MARK_SIZES = (60, 140)
+
 CARD_WIDTH = 350
 
 # Where the wordmark starts. The adapter occupies roughly the first 155 pixels,
@@ -225,6 +238,79 @@ def build_icon(mask, rotation_degrees=0):
     return to_one_bit(render_adapter(mask, ICON_SIZE, rotation_degrees))
 
 
+def build_readme_logo(mask, ink):
+    """
+    The logo for the README: the adapter and the wordmark, large and smooth, on
+    a transparent background.
+
+    Not 1-bit, and deliberately so. Everything the device draws is 1-bit because
+    that is what the screen is, but a README is displayed on an ordinary screen
+    where the dithered version just looks broken. The shape is rendered large and
+    scaled down with a good filter, which leaves clean antialiased edges.
+
+    Two of these get written, one black and one white, so the README can hand
+    GitHub both and let it pick by theme. A single black logo disappears against
+    a dark theme and a single white one disappears against a light one, and a
+    logo with its own background is a rectangle stuck on the page.
+    """
+    height = README_LOGO_WIDTH * 155 // 350
+
+    # Composed at four times the final size, then scaled down, which is what
+    # smooths the curves of the arms.
+    scale = 4
+    canvas = Image.new("L", (README_LOGO_WIDTH * scale, height * scale), 255)
+
+    adapter_size = (height - 10) * scale
+    adapter = mask.rotate(0, resample=Image.BICUBIC, fillcolor=255)
+    adapter = adapter.resize((adapter_size, adapter_size), Image.LANCZOS)
+    canvas.paste(adapter, (10 * scale, 5 * scale))
+
+    draw = ImageDraw.Draw(canvas)
+    wordmark_font = load_wordmark_font(44 * scale * README_LOGO_WIDTH // CARD_WIDTH)
+    ink_bounds = draw.textbbox((0, 0), "SPINDLE", font=wordmark_font)
+    ink_height = ink_bounds[3] - ink_bounds[1]
+    draw.text(
+        (WORDMARK_LEFT * scale * README_LOGO_WIDTH // CARD_WIDTH - ink_bounds[0],
+         (height * scale - ink_height) // 2 - ink_bounds[1]),
+        "SPINDLE",
+        font=wordmark_font,
+        fill=0,
+    )
+
+    canvas = canvas.resize((README_LOGO_WIDTH, height), Image.LANCZOS)
+
+    # The greyscale becomes the alpha: where the artwork is dark the logo is
+    # opaque, and the paper it was drawn on becomes nothing at all.
+    transparency = ImageChops.invert(canvas)
+    solid = Image.new("L", canvas.size, 0 if ink == "black" else 255)
+    return Image.merge("RGBA", (solid, solid, solid, transparency))
+
+
+def build_cover_mark(mask, size):
+    """
+    The adapter alone, filling a square, for use where a cover is expected and
+    none exists.
+
+    Drawn on white with the adapter dark, so it sits the same way round as a real
+    cover does and a list of albums and playlists reads consistently. The app
+    flips it exactly as it flips artwork, since the display is inverted and a
+    mark meant to look like a cover has to be treated like one.
+
+    This replaces three separate hand drawn placeholders, each of which was a
+    circle and three spokes approximating the shape this is actually made from.
+    """
+    # A margin so the arms do not touch the edge of the square the way a
+    # photograph's content does.
+    inset = max(2, size // 12)
+    adapter_size = size - inset * 2
+
+    square = Image.new("L", (size, size), 255)
+    adapter = mask.resize((adapter_size, adapter_size), Image.LANCZOS)
+    square.paste(adapter, (inset, inset))
+
+    return square.convert("1", dither=Image.NONE)
+
+
 def main():
     if not SOURCE_IMAGE_PATH.exists():
         raise SystemExit(f"Source image not found: {SOURCE_IMAGE_PATH}")
@@ -263,7 +349,18 @@ def main():
         f"loopCount = 0\nframes = {frame_sequence}\n"
     )
 
+    for size in COVER_MARK_SIZES:
+        build_cover_mark(mask, size).save(COVER_MARK_FOLDER / f"adapter-{size}.png")
+    print(f"wrote cover marks to {COVER_MARK_FOLDER}")
+    print(f"  " + ", ".join(f"adapter-{size}.png" for size in COVER_MARK_SIZES))
+
+    DOCS_FOLDER.mkdir(parents=True, exist_ok=True)
+    build_readme_logo(mask, "black").save(DOCS_FOLDER / "logo-light.png")
+    build_readme_logo(mask, "white").save(DOCS_FOLDER / "logo-dark.png")
+
     total_ticks = ANIMATION_FRAME_COUNT * TICKS_PER_FRAME
+    print(f"wrote README logos to {DOCS_FOLDER}")
+    print(f"  logo-light.png, logo-dark.png at {README_LOGO_WIDTH}px wide")
     print(f"wrote launcher art to {OUTPUT_FOLDER}")
     print(f"  card.png, card-pressed.png, icon.png")
     print(f"  {ANIMATION_FRAME_COUNT} frames over 120 degrees, held {TICKS_PER_FRAME} ticks each")

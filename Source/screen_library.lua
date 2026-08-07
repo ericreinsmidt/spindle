@@ -211,10 +211,10 @@ local function browsableCollections()
             detail = string.format("playlist  %d tracks  %s",
                 #playlist.entries, Library.formatDuration(totalSeconds)),
             entries = playlist.entries,
-            -- A playlist has no artwork of its own, so it borrows the cover of
-            -- whatever it opens with. That is more use than a placeholder and
-            -- costs nothing, since the image is already loaded for that album.
-            coverAlbum = playlist.entries[1] and playlist.entries[1].album or nil,
+            -- No cover album, so the row draws the adapter mark. A playlist
+            -- borrowing the cover of whatever it opened with was tried and makes
+            -- it look like that album, which is exactly what it is not.
+            coverAlbum = nil,
         })
     end
 
@@ -272,39 +272,6 @@ local function thumbnailForAlbum(album)
 
     thumbnailsByAlbum[album] = thumbnail or false
     return thumbnail
-end
-
-
--- Stand in for a missing cover, drawn as a square with an outline and a centre
--- hole that echoes the 45 adapter the app is named for.
---
--- It uses the same ground a real cover lands on, so that a record without
--- artwork sits the same way round as one with it. Getting this wrong would be
--- more obvious than leaving it plain, because the two would disagree down a
--- single list.
-local function drawCoverPlaceholder(left, top)
-    graphics.setColor(Artwork.paperColor())
-    graphics.fillRect(left, top, ALBUM_COVER_SIZE, ALBUM_COVER_SIZE)
-
-    graphics.setColor(Artwork.inkColor())
-    graphics.drawRect(left, top, ALBUM_COVER_SIZE, ALBUM_COVER_SIZE)
-
-    local centreX = left + ALBUM_COVER_SIZE / 2
-    local centreY = top + ALBUM_COVER_SIZE / 2
-    graphics.drawCircleAtPoint(centreX, centreY, 9)
-
-    -- Three spokes at 120 degrees apart, matching the three arm adapter shape.
-    for spokeNumber = 0, 2 do
-        local spokeAngle = math.rad(90 + spokeNumber * 120)
-        graphics.drawLine(
-            centreX + math.cos(spokeAngle) * 9,
-            centreY + math.sin(spokeAngle) * 9,
-            centreX + math.cos(spokeAngle) * 24,
-            centreY + math.sin(spokeAngle) * 24)
-    end
-
-    -- Leave black selected, since everything drawn after this expects it.
-    graphics.setColor(graphics.kColorBlack)
 end
 
 
@@ -391,7 +358,7 @@ local function drawAlbumList()
                 if thumbnail then
                     Artwork.draw(thumbnail, ALBUM_COVER_LEFT, coverTop)
                 else
-                    drawCoverPlaceholder(ALBUM_COVER_LEFT, coverTop)
+                    Artwork.drawCoverMark(ALBUM_COVER_LEFT, coverTop, ALBUM_COVER_SIZE)
                 end
 
                 -- Put the text's own draw mode back, for both kinds of row

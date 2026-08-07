@@ -124,38 +124,6 @@ local function artworkForAlbum(album)
 end
 
 
--- Draw a placeholder in the artwork slot when a record has no cover, rather
--- than leaving a hole. A 45 adapter outline echoes the app's own mark.
-local function drawArtworkPlaceholder()
-    -- Sits on the same coloured ground a real cover would, so a record without
-    -- artwork does not read the opposite way round from one with it.
-    graphics.setColor(Artwork.paperColor())
-    graphics.fillRect(ARTWORK_LEFT, ARTWORK_TOP, ARTWORK_SIZE, ARTWORK_SIZE)
-
-    graphics.setColor(Artwork.inkColor())
-    graphics.drawRect(ARTWORK_LEFT, ARTWORK_TOP, ARTWORK_SIZE, ARTWORK_SIZE)
-
-    local centreX = ARTWORK_LEFT + ARTWORK_SIZE / 2
-    local centreY = ARTWORK_TOP + ARTWORK_SIZE / 2
-    graphics.drawCircleAtPoint(centreX, centreY, 44)
-    graphics.drawCircleAtPoint(centreX, centreY, 8)
-
-    -- Three spokes at 120 degrees apart, matching the three arm adapter shape.
-    for spokeNumber = 0, 2 do
-        local spokeAngle = math.rad(90 + spokeNumber * 120)
-        graphics.drawLine(
-            centreX + math.cos(spokeAngle) * 8,
-            centreY + math.sin(spokeAngle) * 8,
-            centreX + math.cos(spokeAngle) * 44,
-            centreY + math.sin(spokeAngle) * 44
-        )
-    end
-
-    -- Leave black selected, since everything drawn after this expects it.
-    graphics.setColor(graphics.kColorBlack)
-end
-
-
 -- Draw the compact spectrum. Each bar is one frequency band from the analysis
 -- file, with bass on the left and treble on the right. A baseline is drawn
 -- underneath so the strip still reads as a deliberate element during a quiet
@@ -407,7 +375,7 @@ function ScreenNowPlaying.draw()
     if artwork then
         Artwork.draw(artwork, ARTWORK_LEFT, ARTWORK_TOP)
     else
-        drawArtworkPlaceholder()
+        Artwork.drawCoverMark(ARTWORK_LEFT, ARTWORK_TOP, ARTWORK_SIZE)
     end
 
     -- Everything in the right hand column is trimmed to the column, because a

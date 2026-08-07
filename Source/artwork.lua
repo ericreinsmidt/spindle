@@ -34,19 +34,36 @@ function Artwork.draw(image, left, top)
 end
 
 
--- The colours a picture's own background and foreground should be drawn in.
+-- The adapter on its own, for wherever a cover is wanted and there is none.
 --
--- These exist for the stand-in drawn when a record has no cover, so that it sits
--- on the same coloured ground a real cover does. Without them, albums with
--- artwork and albums without would read opposite ways round down a single list.
+-- A playlist has no artwork, and neither does an album whose files carried none.
+-- Both get the 45 adapter the app is named for, generated from the same
+-- photograph as the logo and the launcher art, so it is the real shape rather
+-- than a circle and three spokes standing in for it.
 --
--- Both are the opposite of what they say, because the display flips them again
--- before anyone sees them. Paper drawn black arrives white.
-function Artwork.paperColor()
-    return graphics.kColorBlack
-end
+-- A playlist used to borrow the cover of whatever it opened with. That was free
+-- and it was wrong: it makes a playlist look like that album, which is exactly
+-- the thing it is not.
+--
+-- Loaded once at import. Two of them, because a cover is drawn at two sizes and
+-- shrinking the large one would be resampling a 1-bit image, which is what
+-- turns artwork into noise.
+local coverMarks <const> = {
+    [60] = graphics.image.new("adapter-60"),
+    [140] = graphics.image.new("adapter-140"),
+}
 
 
-function Artwork.inkColor()
-    return graphics.kColorWhite
+-- Draw the adapter mark in a cover's place, at whichever of the two sizes is
+-- being asked for.
+--
+-- Flipped exactly as a real cover is, so a list of albums and playlists reads
+-- consistently rather than having one row the opposite way round from the rest.
+function Artwork.drawCoverMark(left, top, size)
+    local mark = coverMarks[size]
+    if mark then
+        Artwork.draw(mark, left, top)
+        return true
+    end
+    return false
 end

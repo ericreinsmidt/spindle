@@ -191,10 +191,24 @@ end
 
 -- Pick an album at random. Used by the shuffle albums play mode, which puts on
 -- a whole record rather than a random song.
-function Library.randomAlbum()
+function Library.randomAlbum(albumToAvoid)
     if #Library.albums == 0 then
         return nil
     end
+
+    -- Picking from everything except the one just played, rather than picking
+    -- from everything and retrying on a clash. Retrying has no bound on how long
+    -- it takes, and with a single album in the library it never finishes at all.
+    if albumToAvoid and #Library.albums > 1 then
+        local choices = {}
+        for _, album in ipairs(Library.albums) do
+            if album ~= albumToAvoid then
+                choices[#choices + 1] = album
+            end
+        end
+        return choices[math.random(#choices)]
+    end
+
     return Library.albums[math.random(#Library.albums)]
 end
 

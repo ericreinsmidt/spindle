@@ -52,6 +52,15 @@ Player.REPEAT_TRACK = 3
 -- The list of entries currently queued for playback, and where we are in it.
 -- Each entry is a table holding an album and a track, as built by library.lua.
 local playbackList = {}
+
+-- The same entries in the order they were handed over, kept unshuffled.
+--
+-- Without this, turning shuffle off did nothing: the list had been shuffled in
+-- place and there was no record of what it used to be, so "in order" carried on
+-- playing the shuffled order until you left the album and came back. Shuffling
+-- has to be something the list can be put back from, which means keeping the
+-- order it came in rather than overwriting it.
+local orderedPlaybackList = {}
 local positionInPlaybackList = 1
 
 -- The audible player and the channel it sits on.
@@ -237,6 +246,7 @@ end
 -- whole track list, so playback continues through the record.
 function Player.playList(entries, startPosition)
     playbackList = entries or {}
+    orderedPlaybackList = playbackList
     if #playbackList == 0 then
         return false
     end
@@ -275,6 +285,7 @@ end
 -- in someone's bag.
 function Player.restore(entries, startPosition, startAtSeconds, shouldPlay)
     playbackList = entries or {}
+    orderedPlaybackList = playbackList
     if #playbackList == 0 then
         return false
     end
@@ -383,10 +394,15 @@ local function nextPlaybackPosition(isAutomaticAdvance)
     end
 
     if Player.playMode == Player.PLAY_MODE_SHUFFLE_ALBUMS then
-        -- The record finished, so put on another one at random.
-        local nextAlbum = Library.randomAlbum()
+        -- The record finished, so put on another one at random, but not the one
+        -- that has just played. A random pick from ten albums lands on the same
+        -- record again about a tenth of the time, and hearing a record start
+        -- over does not read as shuffle working, it reads as it being broken.
+        local currentEntry = playbackList[positionInPlaybackList]
+        local nextAlbum = Library.randomAlbum(currentEntry and currentEntry.album)
         if nextAlbum then
             playbackList = Library.playbackListForAlbum(nextAlbum)
+            orderedPlaybackList = playbackList
             return 1
         end
     end
@@ -420,21 +436,46 @@ function Player.skipToPrevious()
 end
 
 
+-- Put an entry at a given position by swapping it with whatever is there.
+--
+-- A swap rather than a remove and insert, because everything else in the list is
+-- in a random order anyway and swapping is one operation rather than a shift of
+-- everything after it.
+local function moveEntryToPosition(wantedEntry, position)
+    for index, entry in ipairs(playbackList) do
+        if entry == wantedEntry then
+            playbackList[index] = playbackList[position]
+            playbackList[position] = wantedEntry
+            return
+        end
+    end
+end
+
+
 function Player.cyclePlayMode()
     Player.playMode = Player.playMode + 1
     if Player.playMode > Player.PLAY_MODE_SHUFFLE_ALBUMS then
         Player.playMode = Player.PLAY_MODE_IN_ORDER
     end
 
-    -- Switching into track shuffle reshuffles what is left, keeping whatever
-    -- is currently playing where it is so the music does not jump.
+    -- Whichever way the mode moved, the track playing right now keeps playing and
+    -- ends up wherever it belongs in the new order. Only what comes after it
+    -- changes, which is the only thing a play mode should be able to change
+    -- while the music is going.
+    local currentEntry = playbackList[positionInPlaybackList]
+
     if Player.playMode == Player.PLAY_MODE_SHUFFLE_TRACKS then
-        local currentEntry = playbackList[positionInPlaybackList]
-        playbackList = Library.shuffled(playbackList)
+        playbackList = Library.shuffled(orderedPlaybackList)
+        moveEntryToPosition(currentEntry, positionInPlaybackList)
+    else
+        -- Out of shuffle and back to the order the list arrived in. This used to
+        -- do nothing at all, because the shuffle had overwritten the list and
+        -- there was nothing left to go back to, so turning shuffle off carried on
+        -- playing shuffled.
+        playbackList = orderedPlaybackList
         for index, entry in ipairs(playbackList) do
             if entry == currentEntry then
-                playbackList[index] = playbackList[positionInPlaybackList]
-                playbackList[positionInPlaybackList] = currentEntry
+                positionInPlaybackList = index
                 break
             end
         end

@@ -434,6 +434,12 @@ Everything in this document is built. The queue was cut, for the reasons
 recorded above.
 
 Performance. Most visualizers run at 25 to 30 fps against a 30 fps target.
+
+Sleeve holds the full 30 while drawing the cover sixteen to thirty two times a
+frame, which is worth recording because the ink-bound rule would suggest
+otherwise: it is putting new ink down that costs, not moving ink that already
+exists. Blitting existing pixels is cheap here even in quantity.
+
 Chladni originally ran at 6, because two sine lookups sat inside the inner loop
 and were being recomputed once per column for every row. It was rewritten to
 hoist those, then rewritten again to trace the contour rather than fill cells.

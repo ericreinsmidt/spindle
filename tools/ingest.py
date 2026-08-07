@@ -63,6 +63,12 @@ AUDIO_CHANNEL_COUNT = 2
 # Album artwork is displayed at 140 by 140 pixels on the now playing screen.
 ALBUM_ART_SIZE = 140
 
+# The Sleeve visualizer shows the cover at the full height of the screen, so it
+# gets its own dither at 240. Enlarging the 140 pixel version on the device
+# would resample a 1-bit image and turn the halftone into noise, which is the
+# same reason the list thumbnail is generated separately rather than shrunk.
+ALBUM_FULLSCREEN_SIZE = 240
+
 # The album list shows a smaller cover beside each row. It is dithered
 # separately at its final size rather than being shrunk on the device, because a
 # Floyd Steinberg pattern is chosen for the resolution it was generated at and
@@ -127,8 +133,8 @@ def make_filesystem_slug(text):
     Accented characters are folded to their closest ASCII equivalent rather
     than stripped, so "Namaste" survives instead of becoming "Namast".
     """
-    normalised = unicodedata.normalize("NFKD", text)
-    ascii_only = normalised.encode("ascii", "ignore").decode("ascii")
+    normalized = unicodedata.normalize("NFKD", text)
+    ascii_only = normalized.encode("ascii", "ignore").decode("ascii")
     lowered = ascii_only.lower()
     hyphenated = re.sub(r"[^a-z0-9]+", "-", lowered)
     return hyphenated.strip("-") or "untitled"
@@ -431,7 +437,7 @@ def decode_to_mono_samples(source_audio_path):
     Decode a source file to a mono float array for analysis.
 
     Analysis does not need stereo, and mixing to mono halves the work and
-    avoids the question of which channel to analyse. The samples come back as
+    avoids the question of which channel to analyze. The samples come back as
     16-bit integers on stdout and get scaled into the range minus one to one.
     """
     raw_bytes = subprocess.run(
@@ -499,15 +505,15 @@ def compute_band_energies(mono_samples):
             last_bin = max(first_bin + 1, band_edges_in_bins[band_index + 1])
             band_energies[frame_index, band_index] = magnitude_spectrum[first_bin:last_bin].mean()
 
-    # Convert to decibels so quiet detail survives, then normalise the whole
-    # track to fill the byte range. Normalising per track rather than globally
+    # Convert to decibels so quiet detail survives, then normalize the whole
+    # track to fill the byte range. Normalizing per track rather than globally
     # means a quietly mastered album still produces a lively visualizer.
     band_energies_in_decibels = 20.0 * numpy.log10(band_energies + 1e-9)
     loudest = band_energies_in_decibels.max()
     quietest = max(band_energies_in_decibels.min(), loudest - 60.0)
-    normalised = (band_energies_in_decibels - quietest) / max(loudest - quietest, 1e-6)
+    normalized = (band_energies_in_decibels - quietest) / max(loudest - quietest, 1e-6)
 
-    scaled_to_bytes = numpy.clip(normalised * 255.0, 0, 255).astype(numpy.uint8)
+    scaled_to_bytes = numpy.clip(normalized * 255.0, 0, 255).astype(numpy.uint8)
     return scaled_to_bytes, spectrum_history
 
 
@@ -595,7 +601,7 @@ def compute_waveform_envelope(mono_samples):
 
     RMS measures how loud a slice actually is rather than how loud its single
     loudest sample was, so quiet verses read as quiet and the structure of a
-    song is visible. It is normalised to the track's own loudest slice, so every
+    song is visible. It is normalized to the track's own loudest slice, so every
     track uses the full height of the bar whatever it was mastered at.
 
     A power curve applied on top of this was tried, to push the difference
@@ -673,9 +679,9 @@ def write_analysis_file(destination_path, band_energies, onset_frame_indices, wa
 
 def crop_to_square_and_resize(source_image, output_size):
     """
-    Turn any artwork into a square greyscale image at the size we want.
+    Turn any artwork into a square grayscale image at the size we want.
 
-    The crop is centred, so non-square artwork loses its edges rather than being
+    The crop is centered, so non-square artwork loses its edges rather than being
     stretched out of shape.
     """
     image_in_greyscale = source_image.convert("L")
@@ -691,17 +697,21 @@ def crop_to_square_and_resize(source_image, output_size):
     return cropped_to_square.resize((output_size, output_size), Image.LANCZOS)
 
 
-def dither_artwork_to_png(source_image, destination_png_path):
+def dither_artwork_to_png(source_image, destination_png_path, output_size=ALBUM_ART_SIZE):
     """
-    Convert album artwork to the full size 1-bit image the now playing screen
-    shows.
+    Convert album artwork to a 1-bit image at one of the larger sizes.
 
     Floyd Steinberg dithering, which is what PIL's convert("1") does by default.
-    At 140 pixels there are enough dots to carry a continuous tone, so dithered
-    artwork on this screen reads like newsprint halftone, which looks deliberate
-    rather than like a compromise.
+    At 140 pixels and above there are enough dots to carry a continuous tone, so
+    dithered artwork on this screen reads like newsprint halftone, which looks
+    deliberate rather than like a compromise. No contrast stretch here, unlike
+    the thumbnail, because at these sizes there are dots to spare for the
+    difference between one dark gray and another.
+
+    Used for both the 140 pixel cover on the now playing screen and the 240
+    pixel one the Sleeve visualizer cuts into strips.
     """
-    resized = crop_to_square_and_resize(source_image, ALBUM_ART_SIZE)
+    resized = crop_to_square_and_resize(source_image, output_size)
     resized.convert("1").save(destination_png_path)
 
 
@@ -717,19 +727,19 @@ def reduce_artwork_to_thumbnail_png(source_image, destination_png_path):
     out, and every photographic cover came out as noise that read as texture
     rather than as a picture. Four approaches were compared at six times
     magnification, and the only readable one threw the tone away entirely:
-    stretch the contrast, blur slightly, then threshold hard at mid grey, which
+    stretch the contrast, blur slightly, then threshold hard at mid gray, which
     reduces the cover to a silhouette.
 
     The list now shows three rows and has room for 60 pixels, and at that size
     the comparison comes out the other way round. There are enough dots for
-    dithering to carry real tone, faces are recognisable, and lettering on a
+    dithering to carry real tone, faces are recognizable, and lettering on a
     cover is legible as lettering. The silhouette method looks blobby beside it.
 
     So this is a plain Floyd Steinberg dither, with the contrast stretched
     first. The stretch is what separates it from the full size image: a cover
-    shot in a narrow range of greys has that range spread over the whole scale,
+    shot in a narrow range of grays has that range spread over the whole scale,
     which matters far more at 60 pixels than at 140 because there are fewer dots
-    to spend on the difference between one dark grey and another.
+    to spend on the difference between one dark gray and another.
     """
     resized = crop_to_square_and_resize(source_image, ALBUM_THUMBNAIL_SIZE)
 
@@ -751,7 +761,7 @@ def find_albums(source_folder):
     An album is any folder that directly contains audio files. The artist is
     taken from the parent folder name as a starting point, though tags and the
     sidecar can override it. This means both a flat folder of songs and a
-    properly organised artist and album tree will work.
+    properly organized artist and album tree will work.
     """
     music_root = source_folder / "music"
     if not music_root.exists():
@@ -941,7 +951,7 @@ def main():
 
             print(f"\n  {album_artist} / {album_title}", flush=True)
 
-            # Work out the track order, honouring the sidecar if it listed one.
+            # Work out the track order, honoring the sidecar if it listed one.
             ordered_audio_files = album["audio_files"]
             if "track_order" in sidecar:
                 by_filename = {path.name: path for path in album["audio_files"]}
@@ -980,7 +990,22 @@ def main():
                     "final_relative_path": f"art/{album_slug}-thumb.pdi",
                 })
 
-                print(f"      artwork dithered to {ALBUM_ART_SIZE}x{ALBUM_ART_SIZE} "
+                # The full screen version for the Sleeve visualizer, found the
+                # same way by adding "-full". A library ingested before this
+                # existed gains it from a --only artwork run rather than from a
+                # full reconversion.
+                dither_artwork_to_png(
+                    artwork_image,
+                    staging_source / f"art-{album_slug}-full.png",
+                    ALBUM_FULLSCREEN_SIZE,
+                )
+                conversion_plan.append({
+                    "staged_name": f"art-{album_slug}-full.pdi",
+                    "final_relative_path": f"art/{album_slug}-full.pdi",
+                })
+
+                print(f"      artwork dithered to {ALBUM_FULLSCREEN_SIZE}x{ALBUM_FULLSCREEN_SIZE}, "
+                      f"{ALBUM_ART_SIZE}x{ALBUM_ART_SIZE} "
                       f"and {ALBUM_THUMBNAIL_SIZE}x{ALBUM_THUMBNAIL_SIZE}")
             elif not rebuilding_analysis_only:
                 print("      no artwork found")
@@ -1023,7 +1048,7 @@ def main():
                         "final_relative_path": final_audio_path,
                     })
 
-                # Analyse the original file rather than the ADPCM version, so
+                # Analyze the original file rather than the ADPCM version, so
                 # the spectrum reflects the source rather than the compression.
                 mono_samples = decode_to_mono_samples(audio_file)
                 band_energies, spectrum_history = compute_band_energies(mono_samples)

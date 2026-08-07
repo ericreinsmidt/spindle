@@ -28,8 +28,25 @@ local graphics <const> = playdate.graphics
 
 -- Draw a picture the right way up on a display that is about to flip it.
 function Artwork.draw(image, left, top)
-    graphics.setImageDrawMode(graphics.kDrawModeInverted)
+    Artwork.beginDrawing()
     image:draw(left, top)
+    Artwork.endDrawing()
+end
+
+
+-- Turn the flip on and off around a run of drawing, for a caller that puts one
+-- picture down in several pieces.
+--
+-- The Sleeve visualizer draws the same cover sixteen times a frame, once per
+-- strip, and setting the mode either side of each of those would be fifteen
+-- redundant state changes. Anything drawn between these two calls is a picture
+-- and will be flipped, so type and line work belong outside them.
+function Artwork.beginDrawing()
+    graphics.setImageDrawMode(graphics.kDrawModeInverted)
+end
+
+
+function Artwork.endDrawing()
     graphics.setImageDrawMode(graphics.kDrawModeCopy)
 end
 
@@ -66,4 +83,13 @@ function Artwork.drawCoverMark(left, top, size)
         return true
     end
     return false
+end
+
+
+-- The adapter mark itself, for a caller that needs to do more with it than put
+-- it down in one piece. Sleeve uses it as the picture it cuts up when an album
+-- turns out to have no cover, so that the visualizer still has something to do
+-- rather than sitting blank.
+function Artwork.coverMarkImage(size)
+    return coverMarks[size]
 end

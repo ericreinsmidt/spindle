@@ -105,9 +105,14 @@ end
 -- The crank movement is passed in rather than read here, because the screen has
 -- to decide where it goes. Most visualizers get it as something to play with,
 -- but one of them asks for it to be spent on scrubbing the track instead, and
--- only the screen is in a position to honour that.
+-- only the screen is in a position to honor that.
+--
+-- album is the record the current track belongs to, which Sleeve needs so it can
+-- find the cover. It is passed in for the same reason the crank is: a visualizer
+-- reaching into Player itself would make it depend on how playback works, and
+-- the point of this context is that none of them do.
 function Visualizers.buildContext(analysis, positionInSeconds, lengthInSeconds,
-                                  frameNumber, crankDeltaInDegrees)
+                                  frameNumber, crankDeltaInDegrees, album)
     local bands = Analysis.bandsAtPosition(analysis, positionInSeconds)
 
     -- A visualizer should never have to check whether analysis exists, so a
@@ -128,6 +133,11 @@ function Visualizers.buildContext(analysis, positionInSeconds, lengthInSeconds,
         -- The analysis object itself, for visualizers that need more than the
         -- current frame. The scope draws the whole track's waveform from it.
         analysis = analysis,
+
+        -- The album the current track sits in, or nil when nothing is playing.
+        -- Note that in a playlist this changes from track to track, so anything
+        -- built from it has to notice when it has been replaced.
+        album = album,
 
         bands = bands,
         bandCount = #bands,

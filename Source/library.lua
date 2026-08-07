@@ -37,7 +37,7 @@ Library.trackCount = 0
 Library.loadError = nil
 
 
--- Sort albums the way a record shelf is usually organised, by artist and then
+-- Sort albums the way a record shelf is usually organized, by artist and then
 -- by album title, rather than by whatever order the folders happened to be
 -- walked in.
 local function sortAlbumsByArtistThenTitle(albums)
@@ -199,18 +199,19 @@ function Library.randomAlbum()
 end
 
 
--- Work out where an album's list thumbnail lives.
+-- Work out where one of an album's other artwork sizes lives.
 --
--- Ingest writes artwork at two sizes: the full 140 pixel image the index points
--- at, and a 60 pixel thumbnail sitting beside it with "-thumb" on the end. The
--- second path is derived here rather than stored in the index, because it is
--- always the same transformation and putting it in the index would mean every
--- library had to be rebuilt to gain thumbnails.
+-- Ingest writes artwork at three sizes: the 140 pixel image the index points at,
+-- a 60 pixel thumbnail for the album list, and a 240 pixel one for the Sleeve
+-- visualizer. Only the first has a path in the index. The other two are derived
+-- by adding a suffix to it, because it is always the same transformation and
+-- putting all three in the index would mean every library had to be rebuilt to
+-- gain a size that was added later.
 --
 -- Returns nil for an album that has no artwork at all. The file may also simply
--- not exist, for a library ingested before thumbnails were added, so callers
--- have to check.
-function Library.thumbnailPathForAlbum(album)
+-- not exist, for a library ingested before that size was added, so callers have
+-- to check rather than trusting the path they get back.
+local function artworkPathWithSuffix(album, suffix)
     local artworkPath = album and album.art
     if not artworkPath then
         return nil
@@ -218,7 +219,19 @@ function Library.thumbnailPathForAlbum(album)
 
     -- The parentheses matter: gsub returns the replacement count as a second
     -- value, and without them that count would be returned to the caller too.
-    return (string.gsub(artworkPath, "%.pdi$", "-thumb.pdi"))
+    return (string.gsub(artworkPath, "%.pdi$", suffix .. ".pdi"))
+end
+
+
+-- The 60 pixel cover the album list draws beside each row.
+function Library.thumbnailPathForAlbum(album)
+    return artworkPathWithSuffix(album, "-thumb")
+end
+
+
+-- The 240 pixel cover the Sleeve visualizer cuts into strips.
+function Library.fullscreenArtPathForAlbum(album)
+    return artworkPathWithSuffix(album, "-full")
 end
 
 

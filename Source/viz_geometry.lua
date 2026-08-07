@@ -91,7 +91,7 @@ local ChladniFigures = {
     --
     -- Clamping that with a hard minimum and maximum was the obvious fix and it
     -- was wrong. One over the gradient is very steep near zero, so two
-    -- neighbouring cells with almost the same gradient can land far apart in
+    -- neighboring cells with almost the same gradient can land far apart in
     -- width, and the clamp then chops that off abruptly. The result was
     -- occasional single cells fatter than everything around them, which broke
     -- the line into lumps.
@@ -106,7 +106,7 @@ local ChladniFigures = {
     -- structural rather than enforced, so nothing has to be clamped and the flat
     -- region case needs no special handling.
     --
-    -- The gradient is also averaged with the four neighbouring cells before the
+    -- The gradient is also averaged with the four neighboring cells before the
     -- width is worked out. Without it the width still steps from one segment to
     -- the next, and because each segment is drawn with round caps of its own
     -- radius, those steps show up as a slightly scalloped edge along what should
@@ -228,7 +228,7 @@ function ChladniFigures:draw(context)
 
     -- Evaluate the plate function at every grid point, storing the results so
     -- each one is computed once rather than four times over as a corner of four
-    -- neighbouring cells.
+    -- neighboring cells.
     local plateValues = self.plateValues
     local valuesPerColumn = rowCount + 1
     for column = 0, columnCount do
@@ -244,8 +244,8 @@ function ChladniFigures:draw(context)
     -- How steeply the plate is rising through each cell, squared.
     --
     -- This is a pass of its own rather than being folded into the tracing below,
-    -- because the width of a cell's stroke is averaged with its neighbours, and
-    -- a cell cannot average with a neighbour that has not been worked out yet.
+    -- because the width of a cell's stroke is averaged with its neighbors, and
+    -- a cell cannot average with a neighbor that has not been worked out yet.
     -- Squared, because averaging squares and taking one root at the end gives
     -- the same smoothing for a fifth of the roots.
     local squaredSlopes = self.squaredSlopes
@@ -294,7 +294,7 @@ function ChladniFigures:draw(context)
     -- Every cell draws its own separate segment, and a segment is at most one
     -- cell across, so it is barely longer than it is thick. With the default
     -- butt cap each one ends in a
-    -- square cut perpendicular to its own direction, and because neighbouring
+    -- square cut perpendicular to its own direction, and because neighboring
     -- segments meet at an angle those square ends leave a notch on the outside
     -- of every bend. The result reads as a stack of little blocks rather than
     -- as a stroke.
@@ -336,7 +336,7 @@ function ChladniFigures:draw(context)
                 -- rising through it. So a steep region gives a fine line and a
                 -- flat region gives a broad one, which is the whole effect.
                 --
-                -- Averaged with whichever of the four neighbours exist, so the
+                -- Averaged with whichever of the four neighbors exist, so the
                 -- width changes gradually from one segment to the next instead
                 -- of stepping, which is what keeps the edge of the stroke clean.
                 local slopeBase = column * rowCount
@@ -439,9 +439,10 @@ Visualizers.register(ChladniFigures)
 -- ---------------------------------------------------------------------------
 --
 -- A Victorian drawing machine: two pendulums swinging at right angles, each
--- losing energy over time, with a pen tracing where they meet. The frequencies
--- come from the spectrum, so different music draws different figures, and the
--- decay means each drawing completes and fades rather than running forever.
+-- losing energy as it swings, with a pen tracing where they meet. The
+-- frequencies come from the spectrum, so different music draws different
+-- figures, and the loss of energy is what spirals the figure inward toward the
+-- center as it is drawn.
 --
 -- Shown as Spirograph, which is the toy version of the same idea.
 
@@ -452,7 +453,7 @@ Visualizers.register(ChladniFigures)
 -- further, and winding back retracts the line you just drew. With the crank
 -- still, the picture is still.
 --
--- That forces the figure to be a pure function of how far the pen has travelled,
+-- That forces the figure to be a pure function of how far the pen has traveled,
 -- rather than a trail of points collected frame by frame. A collected trail is
 -- history, and history cannot be wound backwards: you can stop adding to it but
 -- you cannot un-draw it. Recomputing the whole curve from the pen position every
@@ -461,16 +462,32 @@ Visualizers.register(ChladniFigures)
 --
 -- Two turns of the crank draw a complete figure.
 local FIGURE_LIFETIME <const> = 26
-local PEN_TIME_PER_CRANK_DEGREE <const> = FIGURE_LIFETIME / 720
+local DEGREES_TO_DRAW_A_FIGURE <const> = 720
+local PEN_TIME_PER_CRANK_DEGREE <const> = FIGURE_LIFETIME / DEGREES_TO_DRAW_A_FIGURE
+
+-- One more turn past either end of a figure changes to another one.
+--
+-- This is why the crank position is kept in degrees rather than in pen time.
+-- The wind runs from minus 360, through the 720 degrees that draw the figure, to
+-- 1080, and only the middle stretch puts ink down. The two ends are the overrun,
+-- and because it is all one number the overrun has to be unwound before the pen
+-- moves again, the way a screw does not back out until you have undone the turn
+-- that seated it. Nothing has to remember that it is pinned.
+local OVERRUN_DEGREES_TO_CHANGE_FIGURE <const> = 360
 
 -- How much is already drawn when you arrive.
 --
 -- Starting at nothing is the honest reading of "only moves when you crank" and
 -- it is the wrong thing to do: you get a blank screen with no indication that it
 -- is waiting for you rather than broken. A partial figure says what this is and
--- invites the crank, and winding it back to nothing is still available and still
--- picks a new shape.
-local STARTING_PEN_TIME <const> = FIGURE_LIFETIME * 0.3
+-- invites the crank.
+local STARTING_WIND_IN_DEGREES <const> = DEGREES_TO_DRAW_A_FIGURE * 0.3
+
+-- How many figures back you can wind before the oldest is forgotten. Going past
+-- an end you have already been past returns to what was there, and going past
+-- one you have not draws something new, so the crank never reaches a wall in
+-- either direction.
+local REMEMBERED_FIGURE_COUNT <const> = 8
 
 -- The spacing between points along the curve. Small enough that the line reads
 -- as a curve rather than a polygon, large enough not to draw the same pixel
@@ -482,58 +499,150 @@ local TRACE_STEP <const> = 0.08
 -- each point's own position along the curve rather than from a clock, the spiral
 -- is part of the shape rather than something that happens to it.
 local DAMPING_RATE <const> = 0.06
-local STARTING_AMPLITUDE <const> = 96
+
+-- How far the pendulums swing at the start, before damping pulls them in.
+--
+-- The figure reaches exactly this far from center horizontally and this much
+-- times the squash vertically, so the numbers are the half extents: 150 by 105
+-- against a 400 by 240 screen, leaving a margin of 50 and 15. It used to sit at
+-- 96, which drew a figure in the middle third of the screen with a great deal of
+-- nothing around it.
+--
+-- The vertical squash is what stops it reading as a circle. It went up with the
+-- amplitude, because at 0.62 a figure this wide would have run out of height
+-- before it ran out of width.
+local STARTING_AMPLITUDE <const> = 150
+local VERTICAL_SQUASH <const> = 0.70
 
 local Harmonograph = {
     name = "Spirograph",
-    frequencyX = 2.0,
-    frequencyY = 3.0,
-    phaseOffset = 0,
 }
 
-function Harmonograph:reset()
-    self.penTime = STARTING_PEN_TIME
+
+-- Pick a figure from what is playing right now.
+--
+-- Simple ratios give closed elegant loops, so the values are kept small and near
+-- whole numbers. The fractional part is small on purpose: it stops the curve
+-- closing exactly, so the line comes back slightly beside itself rather than
+-- straight over itself, which is where the layered look comes from.
+--
+-- The vertical frequency is built up from the horizontal one rather than drawn
+-- independently, so that the two can never come out equal. When they did, and
+-- with two ranges of similar width landing on similar values that happened
+-- often, the ratio was one to one and a one to one Lissajous figure is an
+-- ellipse. It drew a plain spiral and nothing else, which looked like the
+-- visualizer had given up.
+local function figureFromAudio(context)
+    local bass, mid, treble = Visualizers.bassMidTreble(context)
+    local horizontalFrequency = 1 + math.floor(bass * 4)
+    return {
+        frequencyX = horizontalFrequency + (mid * 0.02),
+        frequencyY = horizontalFrequency + 1 + math.floor(treble * 3) + (bass * 0.02),
+        phaseOffset = mid * math.pi,
+    }
 end
 
+
+function Harmonograph:reset()
+    self.windInDegrees = STARTING_WIND_IN_DEGREES
+
+    -- Cleared rather than kept, so each visit to the screen starts on a shape
+    -- drawn from whatever is playing when you arrive. The first draw rebuilds
+    -- this, because that is the first moment there is any audio to read.
+    self.figures = nil
+    self.figureIndex = 1
+end
+
+
+-- Move forward through the remembered figures, drawing a new one if this is the
+-- furthest forward you have been.
+function Harmonograph:goToNextFigure(context)
+    if self.figureIndex < #self.figures then
+        self.figureIndex = self.figureIndex + 1
+        return
+    end
+
+    table.insert(self.figures, figureFromAudio(context))
+    self.figureIndex = #self.figures
+
+    if #self.figures > REMEMBERED_FIGURE_COUNT then
+        table.remove(self.figures, 1)
+        self.figureIndex = self.figureIndex - 1
+    end
+end
+
+
+-- Move back through them, drawing a new one if this is the furthest back you
+-- have been. A new figure at this end is inserted before the rest, so winding
+-- forward again returns through the ones already seen in the order they were
+-- seen.
+function Harmonograph:goToPreviousFigure(context)
+    if self.figureIndex > 1 then
+        self.figureIndex = self.figureIndex - 1
+        return
+    end
+
+    table.insert(self.figures, 1, figureFromAudio(context))
+    self.figureIndex = 1
+
+    if #self.figures > REMEMBERED_FIGURE_COUNT then
+        table.remove(self.figures)
+    end
+end
+
+
 function Harmonograph:draw(context)
-    if not self.penTime then
+    if not self.windInDegrees then
         self:reset()
     end
 
-    local bass, mid, treble = Visualizers.bassMidTreble(context)
-
-    -- The crank, and nothing else, moves the pen. Signed, so back is back.
-    self.penTime = self.penTime + context.crankDelta * PEN_TIME_PER_CRANK_DEGREE
-
-    if self.penTime <= 0 then
-        self.penTime = 0
-
-        -- Wound all the way back, so there is nothing on screen and this is the
-        -- one moment the shape can change without the change being visible as a
-        -- shape morphing under a line that is already drawn. Simple ratios give
-        -- closed elegant loops, so the values are kept small and near whole
-        -- numbers.
-        self.frequencyX = 1 + math.floor(bass * 4) + (mid * 0.02)
-        self.frequencyY = 1 + math.floor(treble * 5) + (bass * 0.02)
-        self.phaseOffset = mid * math.pi
-    elseif self.penTime > FIGURE_LIFETIME then
-        self.penTime = FIGURE_LIFETIME
+    if not self.figures then
+        self.figures = { figureFromAudio(context) }
+        self.figureIndex = 1
     end
 
-    local centreX = context.width / 2
-    local centreY = context.height / 2
-    local frequencyX = self.frequencyX
-    local frequencyY = self.frequencyY
-    local phaseOffset = self.phaseOffset
+    -- The crank, and nothing else, moves the wind. Signed, so back is back.
+    self.windInDegrees = self.windInDegrees + context.crankDelta
+
+    -- Past the far end of the overrun in either direction, change figure and
+    -- land at the corresponding end of the new one. Arriving from below starts
+    -- it empty so you wind it out; arriving from above starts it complete so you
+    -- wind it back down. Either way the crank keeps turning the same direction
+    -- it already was.
+    if self.windInDegrees > DEGREES_TO_DRAW_A_FIGURE + OVERRUN_DEGREES_TO_CHANGE_FIGURE then
+        self:goToNextFigure(context)
+        self.windInDegrees = 0
+    elseif self.windInDegrees < -OVERRUN_DEGREES_TO_CHANGE_FIGURE then
+        self:goToPreviousFigure(context)
+        self.windInDegrees = DEGREES_TO_DRAW_A_FIGURE
+    end
+
+    -- Only the middle of the wind puts ink down. The overrun at each end leaves
+    -- the picture exactly as it was, which is what makes the change of figure
+    -- feel like reaching the end of something rather than like a glitch.
+    local drawnDegrees = self.windInDegrees
+    if drawnDegrees < 0 then
+        drawnDegrees = 0
+    elseif drawnDegrees > DEGREES_TO_DRAW_A_FIGURE then
+        drawnDegrees = DEGREES_TO_DRAW_A_FIGURE
+    end
+    local penTime = drawnDegrees * PEN_TIME_PER_CRANK_DEGREE
+
+    local figure = self.figures[self.figureIndex]
+    local centerX = context.width / 2
+    local centerY = context.height / 2
+    local frequencyX = figure.frequencyX
+    local frequencyY = figure.frequencyY
+    local phaseOffset = figure.phaseOffset
 
     local previousX, previousY
     local pointTime = 0
 
-    while pointTime <= self.penTime do
+    while pointTime <= penTime do
         local amplitude = STARTING_AMPLITUDE * math.exp(-pointTime * DAMPING_RATE)
-        local pointX = centreX + math.sin(pointTime * frequencyX) * amplitude
-        local pointY = centreY
-            + math.sin(pointTime * frequencyY + phaseOffset) * amplitude * 0.62
+        local pointX = centerX + math.sin(pointTime * frequencyX) * amplitude
+        local pointY = centerY
+            + math.sin(pointTime * frequencyY + phaseOffset) * amplitude * VERTICAL_SQUASH
 
         if previousX then
             graphics.drawLine(previousX, previousY, pointX, pointY)
@@ -595,15 +704,15 @@ function MoireInterference:draw(context)
     -- that rotating it never reveals an end.
     local angleCosine = math.cos(self.rotationAngle)
     local angleSine = math.sin(self.rotationAngle)
-    local centreX = context.width / 2
-    local centreY = context.height / 2
+    local centerX = context.width / 2
+    local centerY = context.height / 2
     local lineHalfLength = 320
 
-    local offsetFromCentre = -320
-    while offsetFromCentre < 320 do
+    local offsetFromCenter = -320
+    while offsetFromCenter < 320 do
         -- A line perpendicular to the rotation direction, offset sideways.
-        local baseX = centreX + angleCosine * offsetFromCentre
-        local baseY = centreY + angleSine * offsetFromCentre
+        local baseX = centerX + angleCosine * offsetFromCenter
+        local baseY = centerY + angleSine * offsetFromCenter
 
         graphics.drawLine(
             baseX - angleSine * lineHalfLength,
@@ -612,7 +721,7 @@ function MoireInterference:draw(context)
             baseY - angleCosine * lineHalfLength
         )
 
-        offsetFromCentre = offsetFromCentre + secondGridSpacing
+        offsetFromCenter = offsetFromCenter + secondGridSpacing
     end
 
     -- Mid energy punches a clear circle in the middle, giving the eye
@@ -626,9 +735,9 @@ function MoireInterference:draw(context)
         local holeRadius = 36 + mid * 64
 
         graphics.setColor(graphics.kColorWhite)
-        graphics.fillCircleAtPoint(centreX, centreY, holeRadius)
+        graphics.fillCircleAtPoint(centerX, centerY, holeRadius)
         graphics.setColor(graphics.kColorBlack)
-        graphics.drawCircleAtPoint(centreX, centreY, holeRadius)
+        graphics.drawCircleAtPoint(centerX, centerY, holeRadius)
     end
 end
 

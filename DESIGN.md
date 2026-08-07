@@ -8,7 +8,7 @@ Bundle ID: `com.reinsmidt.spindle`
 ## Identity
 
 The screen has to stay on for audio to keep playing, so the display is not a
-cost to be minimised. It is the point. Spindle sits on a desk or a nightstand
+cost to be minimized. It is the point. Spindle sits on a desk or a nightstand
 showing something worth looking at while a record plays, with the crank as a
 tactile control you reach for rather than a novelty.
 
@@ -22,13 +22,13 @@ pixels for the launcher list. In the launcher card it rotates at an actual 45
 revolutions per minute. Because the shape has three-fold rotational symmetry,
 only 120 degrees of animation frames are needed before the loop repeats.
 
-The card has no background. The launcher honours a mask on card art, which was
-not obvious and had to be tried, so the adapter and the wordmark sit directly on
-the launcher's own backdrop instead of on a solid rectangle. That backdrop is
-exactly 50 percent black in alternating single pixel rows, measured off a
-screenshot, so it reads as mid grey and solid black artwork has real contrast
-against it. Both the cut out and the solid versions, in either polarity, are two
-constants at the top of tools/make_launcher_art.py.
+The card has no background. The launcher honors a mask on card art, so the
+adapter and the wordmark sit directly on the launcher's own backdrop instead of
+on a solid rectangle. That backdrop is exactly 50 percent black in alternating
+single pixel rows, measured off a screenshot, so it reads as mid gray and solid
+black artwork has real contrast against it. Both the cut out and the solid
+versions, in either polarity, are two constants at the top of
+tools/make_launcher_art.py.
 
 ## Hardware constraints
 
@@ -36,7 +36,7 @@ Every item here was measured on real hardware during Phase 0, not assumed.
 
 | Finding | Consequence for the design |
 |---|---|
-| Audio stops when the device is locked or the system menu opens | Playback only happens with the screen on. An in-app lock is required. Resume behaviour matters more than usual |
+| Audio stops when the device is locked or the system menu opens | Playback only happens with the screen on. An in-app lock is required. Resume behavior matters more than usual |
 | MP3 seeking is O(n), costing roughly 89.5 ms per second of seek target | MP3 is unusable for scrubbing. ADPCM seeks in about 1 ms |
 | There is no backlight. The display is reflective memory-in-pixel | A static screen is nearly free to hold, but dropping the refresh rate only saves about 22 percent of battery, so animation is affordable. White on black is the default, and is a system menu checkbox using `playdate.display.setInverted` because whether it reads better depends on the light you are in rather than on taste. Album art is flipped on the way in when it is on, so the display's flip on the way out cancels and a cover never shows as a negative |
 | Drawing is bound by how much ink reaches the screen, not by arithmetic | Anything visual has to be timed on hardware. The Simulator runs where filling pixels is nearly free and will mislead you about which of two versions is faster |
@@ -81,6 +81,9 @@ files cannot hold ID3 tags.
   music/<album>/<track>.pda       converted audio
   art/<album>.pdi                 album art, dithered to 1-bit at 140 px
   art/<album>-thumb.pdi           the same art at 60 px for the album list
+  art/<album>-full.pdi            the same art at 240 px for the Sleeve
+                                  visualizer, which is the full height of
+                                  the screen
   analysis/<album>/<track>.bin    spectrum, onsets and waveform
   library.json                    the index, read once at startup, including
                                   any playlists as lists of track paths
@@ -97,7 +100,7 @@ full run and a gigabyte of copying.
 
 Both sizes are Floyd Steinberg dithered, with the contrast stretched first on
 the thumbnail because it has far fewer dots to spend on the difference between
-one dark grey and another.
+one dark gray and another.
 
 How small the thumbnail is decides which method works, and the answer is not the
 same at every size. The album list originally showed five rows with room for 36
@@ -109,7 +112,7 @@ silhouette by stretching contrast, blurring slightly and thresholding hard.
 
 The list now shows three rows with room for 60 pixels, and the comparison comes
 out the other way round. There are enough dots for dithering to carry real tone,
-faces are recognisable, and lettering on a cover is legible as lettering. The
+faces are recognizable, and lettering on a cover is legible as lettering. The
 silhouette method looks blobby beside it.
 
 Startup reads a single file rather than scanning hundreds of small ones on
@@ -132,7 +135,7 @@ roughly 215 KB.
 
 If no index is present the app falls back to scanning folders and showing
 filenames, so simply dropping `.pda` files somewhere still produces a working,
-if unlabelled, library.
+if unlabeled, library.
 
 ### Analysis performed during ingest
 
@@ -154,7 +157,7 @@ Everything is big endian so the Lua side can read it with string.byte and a
 loop, without depending on string.unpack being available.
 
 On the device this costs one table lookup per frame. No CPU is spent on
-analysis, the data is perfectly synchronised to the playhead, and the analysis
+analysis, the data is perfectly synchronized to the playhead, and the analysis
 itself is better than the hardware could ever manage live. The build step we
 originally treated as the main drawback of ADPCM is what makes this possible.
 
@@ -219,7 +222,7 @@ button equivalent, because plenty of people leave the crank docked all the time.
 | Library | Scrolls the list | Up and down move, A opens, B goes back |
 | Now playing | Scrubs the track | Left and right change track, up opens the fullscreen visualizer, down cycles play modes, holding down cycles repeat, B goes back, holding B enters pocket mode |
 | Pocket | Nothing | Everything is ignored except A and B held together for two seconds |
-| Fullscreen visualizer | Drives the visualizer, except on the waveform scope where it scrubs the track | Left and right seek by 10 seconds, down returns |
+| Fullscreen visualizer | Drives the visualizer | Left and right seek by 10 seconds, up switches visualizer, down or B returns |
 
 To unlock from pocket mode, hold A and B together for two seconds while a
 progress ring fills. A pocket is very unlikely to press two specific buttons and
@@ -261,7 +264,7 @@ screen looks like newsprint, which reads as a deliberate style rather than a
 compromise. The scrub bar is the precomputed waveform, so you can see the shape
 of the song while cranking through it and know where the quiet intro ends.
 
-## Playback behaviour
+## Playback behavior
 
 Gapless playback is verified working on hardware. About ten seconds before the
 current track ends, the next track's player is created at full volume on a
@@ -277,8 +280,8 @@ Pressing down cycles the play modes in this order:
 2. Shuffle tracks, which shuffles the record you are playing
 3. Shuffle albums, which picks a random record and plays it through in order
 
-Shuffle albums is the mode no other Playdate player offers, and it is the one
-that suits an album-first library.
+Shuffle albums is the mode that suits an album-first library, since it keeps
+whole records intact and only randomizes which one comes up.
 
 Repeat is a separate axis with three states: off, album, track. Shuffling
 decides what order things come in and repeating decides what happens when the
@@ -325,6 +328,7 @@ one implements a single draw function and receives the same inputs:
 -- crankDelta  degrees the crank moved since the last frame
 -- position    playhead in seconds
 -- length      track length in seconds
+-- album       the record the current track belongs to, for its artwork
 function visualizer:draw(context) end
 ```
 
@@ -334,13 +338,16 @@ manageable.
 The crank can be a participant rather than just a control, and a visualizer you
 can play with holds up to repeat viewing far better than one you only watch.
 
-A visualizer can also decline the crank and ask for it to be spent on scrubbing
-instead, by setting `scrubsWithCrank`. Only the waveform scope does, because it
-is the one that shows where you are in a song rather than only what it sounds
-like right now, so seeing the quiet intro end and then turning to it is the
-obvious thing to want. It is declared rather than acted on so that visualizers
-stay ignorant of playback: they see a context table and nothing else, and the
-screen is what honours the request.
+A visualizer could once decline the crank and ask for it to be spent on
+scrubbing instead, by setting `scrubsWithCrank`. Only the waveform scope wanted
+it, and the scope was cut, so the flag went with it. The same shape would come
+back if another visualizer ever needs it: it was declared rather than acted on,
+so that visualizers stay ignorant of playback and the screen is what honors the
+request.
+
+Nothing a visualizer needs is fetched by the visualizer. The album is on the
+context for the same reason the crank is, so that Sleeve can find a cover
+without knowing that a player exists.
 
 The first batch:
 
@@ -352,6 +359,7 @@ The first batch:
 | Koi, a boids flock | The crank steers an attractor the flock chases. Bass tightens cohesion, treble increases separation, beats scatter the flock |
 | Garden o' Sound, a moire | Two line grids overlaid, one rotated by the crank, spacing driven by the bands. The cheapest to draw and the most native to a 1-bit screen |
 | Slime, a physarum colony | Physarum agents laying pheromone trails toward a food source the crank moves |
+| Sleeve, the album cover | The cover at the full height of the screen, cut into one strip per band and pushed sideways by how far each band is currently above its own slow average. A steady passage reassembles the picture and a transient tears it. The crank sets how far that can go, from a still readable cover at one end to nothing but texture at the other |
 | Spectrum, and Maigasa which is the same bands around a circle | The readable ones, for when the others are being decorative |
 
 Ideas held back for later: a gravity well, a ripple tank, an Abelian sandpile,
@@ -365,10 +373,9 @@ pitch-shifts rather than time-stretching, so there is no usable speed control.
 Per-file resume positions survive as a small feature that helps any long track.
 
 MP3 support was cut. Seeking is O(n) in the seek target, which makes scrubbing
-impossible. Before accepting that, other Playdate music players were looked at to
-check whether this was a limit of the platform or a mistake in our own use of it.
-None of them scrub either, which is what settled it: the constraint is the SDK's
-MP3 decoder, not anything we were doing wrong.
+impossible. The cost was isolated in notes/archive/seektest, stripped down to a
+single fileplayer and nothing else, and it holds there too, so the constraint is
+the SDK's MP3 decoder rather than anything in how the player uses it.
 
 The queue was cut, after playlists shipped and after living with the app for a
 while. It was in this document from the start, so the reasoning is worth keeping
@@ -385,7 +392,7 @@ a machine with a keyboard and a real screen, and they persist.
 
 It was also the most expensive thing left, and expensive in interaction rather
 than in code: a screen of its own, add and reorder and clear, an insertion point
-relative to whatever is playing, and correct behaviour against three play modes
+relative to whatever is playing, and correct behavior against three play modes
 and three repeat modes. Getting playback order subtly wrong is the kind of fault
 you notice three tracks later.
 
@@ -409,7 +416,7 @@ Working on hardware as of 2026-08-05.
 Ingest, in tools/ingest.py. Converts a music folder into ADPCM .pda audio,
 1-bit dithered .pdi artwork, binary analysis sidecars holding spectrum, onsets
 and waveform, and a library.json index. Reads tags with mutagen across MP3,
-FLAC, M4A and the rest, honours an optional _album.m3u sidecar for overrides
+FLAC, M4A and the rest, honors an optional _album.m3u sidecar for overrides
 and track order, and finds artwork either beside the audio or embedded in it.
 Roughly one second per track.
 
@@ -417,7 +424,7 @@ The app. Album list with cover thumbnails and track list, scrolling with the
 crank or the buttons. Now playing with artwork, a compact spectrum, and the
 precomputed waveform as the scrub bar with a playhead marker. Crank scrubbing.
 Gapless transitions. Three play modes and three repeat modes. Resume on launch.
-Ten visualizers behind a plugin interface, reached with up from now playing.
+Nine visualizers behind a plugin interface, reached with up from now playing.
 
 Launcher art, generated by tools/make_launcher_art.py from a photograph of a
 45 RPM adapter. Sixty frames covering the 120 degrees of the shape's rotational

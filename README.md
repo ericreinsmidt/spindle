@@ -19,7 +19,7 @@ An album-first music player for the Playdate. A listening object rather than a
 pocket player.
 
 The Playdate's screen has to stay on for audio to keep playing, so the display
-is not a cost to be minimised here. It is the point. Spindle is meant to sit on
+is not a cost to be minimized here. It is the point. Spindle is meant to sit on
 a desk or a nightstand showing something worth looking at while a record plays,
 with the crank as a control you reach for rather than a novelty.
 
@@ -28,9 +28,8 @@ dithers album art to 1-bit, and precomputes the spectrum and beat data the
 visualizers run on. The device reads a single index at startup and does no
 scanning of its own.
 
-The awkward parts of this device were measured on hardware before anything was
-designed around them. Those measurements, and what each one forced, are in
-[DESIGN.md](DESIGN.md).
+[DESIGN.md](DESIGN.md) has the hardware measurements this is built on and what
+each one forced.
 
 ## Screenshots
 
@@ -57,8 +56,9 @@ and find where the quiet intro ends without hunting for it.
 **Gapless transitions.** The next track is prepared ten seconds early on a muted
 channel and swapped in at the boundary.
 
-**Eight visualizers**, seven of which you can play with. The crank steers a
-flock and winds a drawing machine.
+**Nine visualizers**, eight of which you can play with. The crank steers a
+flock, winds a drawing machine, and tears the album cover apart a strip at a
+time.
 
 **Playlists**, written as `.m3u` files on your Mac. They are pointers at tracks
 already in the library rather than second copies of them.
@@ -155,7 +155,7 @@ Source/              the Lua app
   glyphs.lua           the playback state marks, as bitmaps
   screen_*.lua         the four screens
   visualizers.lua      plugin registry and the per frame context
-  viz_*.lua            the visualizers themselves
+  viz_*.lua            the visualizers themselves, Sleeve among them
 tools/
   ingest.py              music folder in, Playdate data out
   make_launcher_art.py   launcher art, cover marks and the README logo
@@ -177,8 +177,9 @@ builds without running this first.
 
 Two constants at the top control how the launcher art comes out:
 `RENDER_INVERTED` for white on black, and `RENDER_TRANSPARENT_BACKGROUND` for a
-card with no background at all, which is what ships. The launcher does honour a
-mask on card art, which was not obvious and had to be tried on the device.
+card with no background at all, which is what ships. The launcher honors a mask
+on card art, so a transparent card sits directly on the launcher's own backdrop
+rather than on a rectangle of its own.
 
 ## License
 

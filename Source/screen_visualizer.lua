@@ -2,10 +2,9 @@
 --
 -- This is where the crank stops being a scrub control and becomes part of the
 -- visual. Every visualizer receives the crank movement and can do what it
--- likes with it: steer a flock, rotate a moire grid, slide a vibrating plate
--- through its modes. No other Playdate music player does anything with the
--- crank except scroll, so a visualizer you can play with is the thing that
--- makes this worth building.
+-- likes with it: steer a flock, rotate a moire grid, wind a drawing machine
+-- forward and back. Seven of the eight use it. Spectrum ignores it, because
+-- bars driven by the crank would just be bars that lie about the music.
 --
 -- Controls follow the design:
 --   crank         drives whichever visualizer is showing
@@ -19,6 +18,7 @@ import "typography"
 import "viz_geometry"
 import "viz_life"
 import "viz_meters"
+import "viz_sleeve"
 
 ScreenVisualizer = {}
 
@@ -27,6 +27,7 @@ local graphics <const> = playdate.graphics
 -- The order the picker steps through. Named here rather than depending on
 -- import order and where each register call happens to sit.
 Visualizers.setOrder({
+    "Sleeve",
     "Garden o' Sound",
     "Maigasa",
     "Koi",
@@ -241,12 +242,18 @@ function ScreenVisualizer.draw()
         return
     end
 
+    -- Sleeve needs the record the current track belongs to, so it can find the
+    -- cover. Reading it here keeps the visualizers themselves ignorant of the
+    -- player, which is the whole point of handing them a context.
+    local currentEntry = Player.currentEntry()
+
     local context = Visualizers.buildContext(
         Player.currentAnalysis(),
         Player.position(),
         Player.length(),
         frameNumber,
-        crankDeltaThisFrame
+        crankDeltaThisFrame,
+        currentEntry and currentEntry.album
     )
 
     if visualizerErrorMessage then

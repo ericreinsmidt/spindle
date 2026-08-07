@@ -18,6 +18,12 @@ local LIBRARY_INDEX_NAME <const> = "library"
 -- Every album from the index, in the order ingest emitted them.
 Library.albums = {}
 
+-- Playlists, each holding a name and a list of entries in exactly the shape
+-- playbackListForAlbum produces. They are resolved at load, so nothing that
+-- browses or plays them needs to know whether it is looking at a playlist or an
+-- album.
+Library.playlists = {}
+
 -- How many tracks the library holds in total, across every album.
 --
 -- This used to be a flattened list with an entry per track, built so shuffle and
@@ -46,10 +52,68 @@ local function sortAlbumsByArtistThenTitle(albums)
 end
 
 
+-- Turn the playlists in the index into playable entries.
+--
+-- The index stores a playlist as a list of converted audio paths and nothing
+-- else, because everything else about a track already exists on the album it
+-- belongs to. Repeating the title and duration there would be a second copy to
+-- keep in step, and playlists exist precisely so a track can appear in more than
+-- one place without being stored twice.
+--
+-- The cost of that is one pass here building a lookup from path to track, which
+-- only happens when there are playlists to resolve. A track named by a playlist
+-- but missing from the library is dropped rather than left as a hole, since
+-- there is nothing sensible to draw or play for it.
+local function resolvePlaylists(playlistsFromIndex)
+    if type(playlistsFromIndex) ~= "table" or #playlistsFromIndex == 0 then
+        return
+    end
+
+    local entryByFile = {}
+    for _, album in ipairs(Library.albums) do
+        for trackIndex, track in ipairs(album.tracks) do
+            if track.file then
+                entryByFile[track.file] = {
+                    album = album,
+                    track = track,
+                    trackIndex = trackIndex,
+                }
+            end
+        end
+    end
+
+    for _, playlistFromIndex in ipairs(playlistsFromIndex) do
+        local entries = {}
+
+        for _, file in ipairs(playlistFromIndex.tracks or {}) do
+            local entry = entryByFile[file]
+            if entry then
+                -- A fresh table per playlist entry, because the position within
+                -- the playlist is not the position within the album and the two
+                -- must not share one.
+                table.insert(entries, {
+                    album = entry.album,
+                    track = entry.track,
+                    trackIndex = entry.trackIndex,
+                })
+            end
+        end
+
+        if #entries > 0 then
+            table.insert(Library.playlists, {
+                name = playlistFromIndex.name or "Playlist",
+                entries = entries,
+            })
+        end
+    end
+end
+
+
 -- Read library.json and build the album list and the flattened track list.
 -- Returns true when a usable library was loaded.
 function Library.load()
     Library.albums = {}
+    Library.playlists = {}
     Library.trackCount = 0
     Library.loadError = nil
 
@@ -85,6 +149,8 @@ function Library.load()
         Library.loadError = "The library contains no playable tracks."
         return false
     end
+
+    resolvePlaylists(indexOrError.playlists)
 
     return true
 end

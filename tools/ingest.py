@@ -257,6 +257,94 @@ def read_album_sidecar(album_folder):
     return overrides
 
 
+def find_playlists(source_folder):
+    """
+    Read every .m3u in the playlists folder.
+
+    A playlist is not an album and is deliberately not treated like one. An
+    album is a folder of audio files that get converted; a playlist is a list of
+    pointers at tracks that already live in albums. If it were another folder of
+    files, every track on a playlist would be converted and stored a second
+    time, and at 2.6 MB a minute that costs an album's worth of space for a
+    couple of playlists.
+
+    So this returns the paths a playlist names and nothing else. Resolving them
+    to tracks happens later, once the albums have been processed and there is
+    something to resolve against.
+
+    The playlist is named by its filename, which keeps it to one concept: no
+    directive to declare a name, no way for the name and the file to disagree.
+    """
+    playlists_folder = source_folder / "playlists"
+    if not playlists_folder.is_dir():
+        return []
+
+    playlists = []
+
+    for playlist_path in sorted(playlists_folder.glob("*.m3u")):
+        listed_paths = []
+
+        for raw_line in playlist_path.read_text(encoding="utf-8", errors="replace").splitlines():
+            line = raw_line.strip()
+            # Comments and the #EXTINF lines that carry duration and title are
+            # both skipped: the title and duration come from the track itself,
+            # which is more trustworthy than whatever wrote the playlist.
+            if line and not line.startswith("#"):
+                listed_paths.append(line)
+
+        if listed_paths:
+            playlists.append({
+                "name": playlist_path.stem,
+                "listed_paths": listed_paths,
+                "folder": playlists_folder,
+            })
+        else:
+            print(f"    warning: {playlist_path.name} lists no tracks", file=sys.stderr)
+
+    return playlists
+
+
+def resolve_playlist_track(listed_path, playlist_folder, source_folder, tracks_by_source_path,
+                           tracks_by_filename):
+    """
+    Work out which converted track a line in a playlist refers to.
+
+    Playlists are written by other programs and by hand, so the paths in them
+    can be absolute, relative to the playlist, or relative to the music folder.
+    Each is tried in turn rather than one being declared correct, because a
+    playlist that silently loses half its tracks is worse than one that takes a
+    moment longer to read.
+
+    Matching on filename alone is the last resort. It is what makes a playlist
+    exported from another application work at all, since those often carry paths
+    from a library that lives somewhere else entirely.
+    """
+    candidates = [
+        Path(listed_path),
+        playlist_folder / listed_path,
+        source_folder / listed_path,
+        source_folder / "music" / listed_path,
+    ]
+
+    for candidate in candidates:
+        try:
+            resolved = candidate.resolve()
+        except OSError:
+            continue
+        if resolved in tracks_by_source_path:
+            return tracks_by_source_path[resolved]
+
+    matches = tracks_by_filename.get(Path(listed_path).name)
+    if matches and len(matches) == 1:
+        return matches[0]
+    if matches:
+        print(f"    warning: \"{listed_path}\" matches {len(matches)} tracks by name, skipped",
+              file=sys.stderr)
+        return None
+
+    return None
+
+
 def find_album_artwork(album_folder, first_audio_file):
     """
     Locate album artwork, preferring a file sitting in the album folder and
@@ -700,7 +788,7 @@ def find_albums(source_folder):
 # Writing library.lua
 # ---------------------------------------------------------------------------
 
-def write_library_index(destination_path, albums):
+def write_library_index(destination_path, albums, playlists):
     """
     Write the library index the app loads at startup.
 
@@ -716,7 +804,7 @@ def write_library_index(destination_path, albums):
     startup stays fast no matter how large the library grows.
     """
     index = {
-        "version": 2,
+        "version": 3,
         "albumCount": len(albums),
         "albums": [],
     }
@@ -744,6 +832,17 @@ def write_library_index(destination_path, albums):
             album_entry["tracks"].append(track_entry)
 
         index["albums"].append(album_entry)
+
+    # Playlists carry the converted paths of the tracks they name and nothing
+    # else. No titles, no durations, no artwork: the app looks those up from the
+    # album the track already belongs to, so a playlist cannot drift out of step
+    # with the library and costs a few dozen bytes a track rather than a few
+    # hundred.
+    if playlists:
+        index["playlists"] = [
+            {"name": playlist["name"], "tracks": playlist["tracks"]}
+            for playlist in playlists
+        ]
 
     destination_path.write_text(
         json.dumps(index, indent=2, ensure_ascii=False),
@@ -817,6 +916,13 @@ def main():
 
     conversion_plan = []
     processed_albums = []
+
+    # Where each source file ended up, so a playlist naming that source file can
+    # be pointed at the converted track afterwards. Keyed by resolved absolute
+    # path, with a second index by bare filename for playlists written against a
+    # library that lives somewhere else.
+    tracks_by_source_path = {}
+    tracks_by_filename = {}
 
     try:
         for album in albums:
@@ -931,6 +1037,11 @@ def main():
                 analysis_destination.parent.mkdir(parents=True, exist_ok=True)
                 write_analysis_file(analysis_destination, band_energies, onset_frames, waveform)
 
+                # Remember where this source file ended up, for playlists.
+                resolved_source = audio_file.resolve()
+                tracks_by_source_path[resolved_source] = final_audio_path
+                tracks_by_filename.setdefault(audio_file.name, []).append(final_audio_path)
+
                 # Reading the duration is a separate probe of the source file,
                 # and it is only ever used to write the index. An analysis only
                 # run does not write the index, so there is no reason to spend
@@ -956,8 +1067,36 @@ def main():
         # go through pdc at all. Neither partial rebuild may touch it, because
         # neither one gathers all of the durations, analysis paths and artwork
         # paths that a complete index needs.
+        processed_playlists = []
         if not arguments.only:
-            write_library_index(arguments.output / "library.json", processed_albums)
+            for playlist in find_playlists(arguments.source):
+                resolved_tracks = []
+                missing = 0
+
+                for listed_path in playlist["listed_paths"]:
+                    track_path = resolve_playlist_track(
+                        listed_path, playlist["folder"], arguments.source,
+                        tracks_by_source_path, tracks_by_filename)
+                    if track_path:
+                        resolved_tracks.append(track_path)
+                    else:
+                        missing += 1
+
+                if resolved_tracks:
+                    processed_playlists.append({
+                        "name": playlist["name"],
+                        "tracks": resolved_tracks,
+                    })
+                    note = f", {missing} not found" if missing else ""
+                    print(f"  playlist {playlist['name']}: "
+                          f"{len(resolved_tracks)} track(s){note}")
+                else:
+                    print(f"  playlist {playlist['name']}: no tracks resolved, skipped",
+                          file=sys.stderr)
+
+        if not arguments.only:
+            write_library_index(arguments.output / "library.json",
+                                processed_albums, processed_playlists)
 
         # One pdc pass converts every staged WAV into .pda and every staged PNG
         # into .pdi. An analysis only run stages nothing, since the analysis

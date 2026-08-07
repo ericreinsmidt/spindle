@@ -1,0 +1,48 @@
+Checking a reported skip in Sara Bareilles / Love Song
+2026-08-07
+
+Skips were heard on the device, in the same places whether the track was played
+from the album or from a playlist. Since both play the identical .pda, that put
+the audio file itself under suspicion. It is not the audio. Recording this so
+the same ground is not covered again.
+
+What was established, in order:
+
+  The source MP3 is intact. 320 kbps, 258.83 seconds, and ffmpeg decodes the
+  whole thing without emitting a single error.
+
+  pdc only repackages, it does not re-encode. The shipped .pda is 11,481,552
+  bytes against 11,493,604 for the ADPCM WAV that ffmpeg produced, and the
+  12,052 byte difference is exactly the WAV header plus its LIST/INFO chunk. The
+  .pda begins "Playdate AUD" and the ADPCM payload follows. So reproducing
+  ingest's ffmpeg step and decoding the result back is a faithful test of what
+  is actually on the device.
+
+  Round tripping source -> ADPCM -> PCM and comparing against the source
+  decoded directly:
+
+      median relative error in loud windows      0.0195
+      zero runs of 32+ samples in the round trip 97
+      ...of those sitting where the source was
+         not already quiet                       0
+      20 ms blocks near identical to the one
+         before, which is what a stutter is      0
+      block to block correlation, median         0.03
+
+  The 146 brief level collapses are musical. They appear at the same timestamps
+  and the same levels in the source, which is what a sparse piano ballad with
+  gaps between vocal phrases looks like.
+
+  Clusters of very large sample to sample steps, above 1.0 in a normalised
+  signal, exist at 89.6s, 123.9s and 163.95s. They are present in the source as
+  well, and this is a heavily limited master, so they are content.
+
+Conclusion: the converted audio is a faithful reproduction of the source and the
+source has no dropouts, stutters or splices. Whatever was heard was in playback.
+
+The device was instrumented to record every frame gap over 40 ms alongside the
+cost of each session write, on the theory that the thirty second session
+heartbeat was stalling the fileplayer's reads from flash. The gaps turned out to
+be somewhere else entirely and the problem then stopped reproducing, so it was
+left there. If it returns, that instrument is the thing to rebuild, and the
+session heartbeat is still the first thing worth ruling in or out.

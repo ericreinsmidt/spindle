@@ -73,7 +73,10 @@ local currentView = VIEW_ALBUMS
 local selectedAlbumIndex = 1
 local albumScrollOffset = 0
 
-local openedAlbum = nil
+-- What is open in the track view, as a table holding the rows to draw and the
+-- playback list they produce. An album and a playlist both reduce to that, which
+-- is what lets one track view serve both.
+local openedCollection = nil
 local selectedTrackIndex = 1
 local trackScrollOffset = 0
 
@@ -83,9 +86,13 @@ local trackScrollOffset = 0
 -- and loading them lazily means startup does not stall reading pictures for
 -- albums nobody has scrolled to yet.
 --
+-- Keyed by the album table itself rather than by its position in the list, so a
+-- playlist borrowing the cover of the album it opens with shares the one image
+-- rather than loading a second copy.
+--
 -- An album with no usable thumbnail is stored as false rather than left absent,
 -- so a missing file is not looked for again on every single frame.
-local thumbnailsByAlbumIndex = {}
+local thumbnailsByAlbum = {}
 
 
 -- Keep the selected row on screen by nudging the scroll offset only as far as
@@ -178,9 +185,66 @@ end
 -- The album list
 -- ---------------------------------------------------------------------------
 
+-- Everything the top level shows, playlists first and then albums.
+--
+-- Playlists come first because there are few of them and they are the thing you
+-- made deliberately. They sit in the same list rather than behind a separate
+-- screen, because a playlist is another way to start a run of music and putting
+-- it one level away would make it feel like a different kind of object than it
+-- is.
+--
+-- Rebuilt on each draw rather than cached. It is a handful of table inserts over
+-- a list that only changes when the library reloads, and a cache would be a
+-- second thing to keep in step for no measurable gain.
+local function browsableCollections()
+    local collections = {}
+
+    for _, playlist in ipairs(Library.playlists) do
+        local totalSeconds = 0
+        for _, entry in ipairs(playlist.entries) do
+            totalSeconds = totalSeconds + (entry.track.duration or 0)
+        end
+
+        table.insert(collections, {
+            isPlaylist = true,
+            title = playlist.name,
+            detail = string.format("playlist  %d tracks  %s",
+                #playlist.entries, Library.formatDuration(totalSeconds)),
+            entries = playlist.entries,
+            -- A playlist has no artwork of its own, so it borrows the cover of
+            -- whatever it opens with. That is more use than a placeholder and
+            -- costs nothing, since the image is already loaded for that album.
+            coverAlbum = playlist.entries[1] and playlist.entries[1].album or nil,
+        })
+    end
+
+    for _, album in ipairs(Library.albums) do
+        local detailParts = { album.artist or "Unknown artist" }
+        if album.year then
+            table.insert(detailParts, tostring(album.year))
+        end
+        table.insert(detailParts, string.format("%d tracks", #album.tracks))
+        table.insert(detailParts, Library.formatDuration(Library.albumDuration(album)))
+
+        table.insert(collections, {
+            isPlaylist = false,
+            title = album.title,
+            detail = table.concat(detailParts, "  "),
+            entries = Library.playbackListForAlbum(album),
+            coverAlbum = album,
+        })
+    end
+
+    return collections
+end
+
 -- Load an album's cover thumbnail, or return nil when there is nothing to show.
-local function thumbnailForAlbum(album, albumIndex)
-    local alreadyLoaded = thumbnailsByAlbumIndex[albumIndex]
+local function thumbnailForAlbum(album)
+    if not album then
+        return nil
+    end
+
+    local alreadyLoaded = thumbnailsByAlbum[album]
     if alreadyLoaded ~= nil then
         -- false means it has already been looked for and is not there.
         return alreadyLoaded or nil
@@ -206,7 +270,7 @@ local function thumbnailForAlbum(album, albumIndex)
         end
     end
 
-    thumbnailsByAlbumIndex[albumIndex] = thumbnail or false
+    thumbnailsByAlbum[album] = thumbnail or false
     return thumbnail
 end
 
@@ -245,8 +309,8 @@ end
 
 
 local function updateAlbumList()
-    local albumCount = #Library.albums
-    if albumCount == 0 then
+    local collections = browsableCollections()
+    if #collections == 0 then
         return nil
     end
 
@@ -256,13 +320,13 @@ local function updateAlbumList()
         if selectedAlbumIndex < 1 then
             selectedAlbumIndex = 1
         end
-        if selectedAlbumIndex > albumCount then
-            selectedAlbumIndex = albumCount
+        if selectedAlbumIndex > #collections then
+            selectedAlbumIndex = #collections
         end
     end
 
     if playdate.buttonJustPressed(playdate.kButtonA) then
-        openedAlbum = Library.albums[selectedAlbumIndex]
+        openedCollection = collections[selectedAlbumIndex]
         selectedTrackIndex = 1
         trackScrollOffset = 0
         currentView = VIEW_TRACKS
@@ -279,16 +343,18 @@ end
 
 
 local function drawAlbumList()
-    local albumCount = #Library.albums
+    local collections = browsableCollections()
     local visibleRowCount
     albumScrollOffset, visibleRowCount =
         adjustScrollToShowSelection(selectedAlbumIndex, albumScrollOffset, ALBUM_ROW_HEIGHT,
-            albumCount, ALBUM_LIST_TOP_EDGE)
+            #collections, ALBUM_LIST_TOP_EDGE)
 
+    -- The heading says what is in the list rather than always saying Albums,
+    -- because once playlists are in it that would be wrong.
     graphics.setFont(Typography.body)
-    graphics.drawText("Albums", LIST_LEFT_EDGE, 4)
+    graphics.drawText(#Library.playlists > 0 and "Library" or "Albums", LIST_LEFT_EDGE, 4)
 
-    local countText = string.format("%d", albumCount)
+    local countText = string.format("%d", #collections)
     graphics.drawText(countText,
         CONTENT_RIGHT_EDGE - Typography.body:getTextWidth(countText), 4)
 
@@ -301,77 +367,76 @@ local function drawAlbumList()
     local textBlockHeight = titleHeight + ALBUM_TITLE_TO_DETAIL_GAP + detailHeight
 
     for visibleRow = 1, visibleRowCount do
-        local albumIndex = albumScrollOffset + visibleRow
-        local album = Library.albums[albumIndex]
-        if not album then
+        local collectionIndex = albumScrollOffset + visibleRow
+        local collection = collections[collectionIndex]
+        if not collection then
             break
         end
 
         local bandTop = ALBUM_LIST_TOP_EDGE + (visibleRow - 1) * ALBUM_ROW_HEIGHT
 
-        drawRow(bandTop, ALBUM_ROW_HEIGHT, albumIndex == selectedAlbumIndex, function(isSelected)
-            -- Every cover is flipped, because the display flips the whole
-            -- screen again afterwards and a cover should look like a
-            -- photograph rather than a negative.
-            --
-            -- Flipping only the highlighted row was tried first, on the
-            -- reasoning that its bar comes out light and is therefore the only
-            -- place a cover has light ground to sit on. That leaves every other
-            -- one a negative, which is the thing worth avoiding in the first
-            -- place.
-            local coverTop = bandTop + (ALBUM_ROW_HEIGHT - ALBUM_COVER_SIZE) // 2
-            local thumbnail = thumbnailForAlbum(album, albumIndex)
-            if thumbnail then
-                Artwork.draw(thumbnail, ALBUM_COVER_LEFT, coverTop)
-            else
-                drawCoverPlaceholder(ALBUM_COVER_LEFT, coverTop)
-            end
+        drawRow(bandTop, ALBUM_ROW_HEIGHT, collectionIndex == selectedAlbumIndex,
+            function(isSelected)
+                -- Every cover is flipped, because the display flips the whole
+                -- screen again afterwards and a cover should look like a
+                -- photograph rather than a negative.
+                --
+                -- Flipping only the highlighted row was tried first, on the
+                -- reasoning that its bar comes out light and is therefore the
+                -- only place a cover has light ground to sit on. That leaves
+                -- every other one a negative, which is the thing worth avoiding
+                -- in the first place.
+                local coverTop = bandTop + (ALBUM_ROW_HEIGHT - ALBUM_COVER_SIZE) // 2
+                local thumbnail = thumbnailForAlbum(collection.coverAlbum)
+                if thumbnail then
+                    Artwork.draw(thumbnail, ALBUM_COVER_LEFT, coverTop)
+                else
+                    drawCoverPlaceholder(ALBUM_COVER_LEFT, coverTop)
+                end
 
-            -- Put the text's own draw mode back, for both kinds of row rather
-            -- than only the highlighted one.
-            --
-            -- This used to restore it only when the row was selected, which
-            -- worked purely by luck: back then the cover was drawn in plain copy
-            -- mode, which is what the text on an unselected row wanted anyway.
-            -- The moment covers started being flipped, every unselected row was
-            -- drawing its text in inverted mode as well, and the text
-            -- disappeared.
-            graphics.setImageDrawMode(isSelected
-                and graphics.kDrawModeFillWhite
-                or graphics.kDrawModeCopy)
+                -- Put the text's own draw mode back, for both kinds of row
+                -- rather than only the highlighted one.
+                --
+                -- This used to restore it only when the row was selected, which
+                -- worked purely by luck: back then the cover was drawn in plain
+                -- copy mode, which is what the text on an unselected row wanted
+                -- anyway. The moment covers started being flipped, every
+                -- unselected row was drawing its text in inverted mode as well,
+                -- and the text disappeared.
+                graphics.setImageDrawMode(isSelected
+                    and graphics.kDrawModeFillWhite
+                    or graphics.kDrawModeCopy)
 
-            local textTop = bandTop + (ALBUM_ROW_HEIGHT - textBlockHeight) // 2
+                local textTop = bandTop + (ALBUM_ROW_HEIGHT - textBlockHeight) // 2
 
-            graphics.setFont(Typography.large)
-            graphics.drawText(
-                Typography.truncateToWidth(Typography.large, album.title, textWidth),
-                ALBUM_TEXT_LEFT, textTop)
+                graphics.setFont(Typography.large)
+                graphics.drawText(
+                    Typography.truncateToWidth(Typography.large, collection.title, textWidth),
+                    ALBUM_TEXT_LEFT, textTop)
 
-            local detailParts = { album.artist or "Unknown artist" }
-            if album.year then
-                table.insert(detailParts, tostring(album.year))
-            end
-            table.insert(detailParts, string.format("%d tracks", #album.tracks))
-            table.insert(detailParts, Library.formatDuration(Library.albumDuration(album)))
-
-            graphics.setFont(Typography.body)
-            graphics.drawText(
-                Typography.truncateToWidth(Typography.body,
-                    table.concat(detailParts, "  "), textWidth),
-                ALBUM_TEXT_LEFT, textTop + titleHeight + ALBUM_TITLE_TO_DETAIL_GAP)
-        end)
+                graphics.setFont(Typography.body)
+                graphics.drawText(
+                    Typography.truncateToWidth(Typography.body, collection.detail, textWidth),
+                    ALBUM_TEXT_LEFT, textTop + titleHeight + ALBUM_TITLE_TO_DETAIL_GAP)
+            end)
     end
 
-    drawScrollIndicator(albumCount, visibleRowCount, albumScrollOffset, ALBUM_LIST_TOP_EDGE)
+    drawScrollIndicator(#collections, visibleRowCount, albumScrollOffset, ALBUM_LIST_TOP_EDGE)
 end
 
 
 -- ---------------------------------------------------------------------------
--- The track list inside one album
+-- The track list inside an album or a playlist
 -- ---------------------------------------------------------------------------
+--
+-- One view serves both, because by the time anything gets here the difference
+-- has already been resolved away: an album and a playlist are each a list of
+-- entries holding an album, a track and its number on that album. The only
+-- things that differ are the two lines of heading and whether the numbers down
+-- the left count within the record or within the playlist.
 
 local function updateTrackList()
-    local trackCount = #openedAlbum.tracks
+    local trackCount = #openedCollection.entries
 
     local movement = readMovementInput()
     if movement ~= 0 then
@@ -390,10 +455,9 @@ local function updateTrackList()
     end
 
     if playdate.buttonJustPressed(playdate.kButtonA) then
-        -- Play the whole album starting from the chosen track, rather than
-        -- just the one song, so a record plays through as it should.
-        local playbackList = Library.playbackListForAlbum(openedAlbum)
-        Player.playList(playbackList, selectedTrackIndex)
+        -- Play the whole thing from the chosen track rather than just the one
+        -- song, so a record plays through as it should and a playlist runs on.
+        Player.playList(openedCollection.entries, selectedTrackIndex)
         return "nowplaying"
     end
 
@@ -402,7 +466,7 @@ end
 
 
 local function drawTrackList()
-    local trackCount = #openedAlbum.tracks
+    local trackCount = #openedCollection.entries
     local visibleRowCount
     trackScrollOffset, visibleRowCount =
         adjustScrollToShowSelection(selectedTrackIndex, trackScrollOffset, TRACK_ROW_HEIGHT,
@@ -412,22 +476,30 @@ local function drawTrackList()
 
     graphics.setFont(Typography.large)
     graphics.drawText(
-        Typography.truncateToWidth(Typography.large, openedAlbum.title, headerWidth),
+        Typography.truncateToWidth(Typography.large, openedCollection.title, headerWidth),
         LIST_LEFT_EDGE, 3)
+
+    -- An album names its artist here. A playlist has no single artist, so it
+    -- says what it is and how long it runs instead, which is the thing you
+    -- actually want to know before starting one.
+    local subheading = openedCollection.isPlaylist
+        and openedCollection.detail
+        or (openedCollection.coverAlbum and openedCollection.coverAlbum.artist or "")
 
     graphics.setFont(Typography.body)
     graphics.drawText(
-        Typography.truncateToWidth(Typography.body, openedAlbum.artist or "", headerWidth),
+        Typography.truncateToWidth(Typography.body, subheading, headerWidth),
         LIST_LEFT_EDGE, 28)
 
     local titleWidth = CONTENT_RIGHT_EDGE - TRACK_DURATION_COLUMN_WIDTH - TRACK_TITLE_LEFT
 
     for visibleRow = 1, visibleRowCount do
         local trackIndex = trackScrollOffset + visibleRow
-        local track = openedAlbum.tracks[trackIndex]
-        if not track then
+        local entry = openedCollection.entries[trackIndex]
+        if not entry then
             break
         end
+        local track = entry.track
 
         local bandTop = TRACK_LIST_TOP_EDGE + (visibleRow - 1) * TRACK_ROW_HEIGHT
         if bandTop + TRACK_ROW_HEIGHT > SCREEN_HEIGHT then
@@ -439,8 +511,16 @@ local function drawTrackList()
                 string.format("%2d.", trackIndex),
                 TRACK_NUMBER_LEFT, bandTop, TRACK_ROW_HEIGHT)
 
+            -- On a playlist the title carries the artist as well, because a
+            -- list drawn from several records is unreadable without it. On an
+            -- album every line would say the same name, so it does not.
+            local titleText = track.title
+            if openedCollection.isPlaylist then
+                titleText = titleText .. "   " .. (entry.album.artist or "")
+            end
+
             Typography.drawCentredInBand(Typography.body,
-                Typography.truncateToWidth(Typography.body, track.title, titleWidth),
+                Typography.truncateToWidth(Typography.body, titleText, titleWidth),
                 TRACK_TITLE_LEFT, bandTop, TRACK_ROW_HEIGHT)
 
             local durationText = Library.formatDuration(track.duration)
@@ -465,7 +545,7 @@ end
 
 
 function ScreenLibrary.update()
-    if currentView == VIEW_TRACKS and openedAlbum then
+    if currentView == VIEW_TRACKS and openedCollection then
         return updateTrackList()
     end
     return updateAlbumList()
@@ -473,7 +553,7 @@ end
 
 
 function ScreenLibrary.draw()
-    if currentView == VIEW_TRACKS and openedAlbum then
+    if currentView == VIEW_TRACKS and openedCollection then
         drawTrackList()
     else
         drawAlbumList()

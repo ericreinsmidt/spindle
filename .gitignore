@@ -21,6 +21,13 @@ Music/
 # needed to build Spindle, run it, or prepare music for it, which is the bar for
 # being in the repository at all.
 
+# The two Roobert fonts, copied out of the Playdate SDK by build.sh before every
+# compile. They are Panic's to license, not mine, so they cannot sit in a
+# repository that hands everything to everyone under 0BSD. Every Playdate
+# developer already has the SDK, so copying them at build time costs nobody
+# anything.
+Source/fonts/
+
 # The design document. A working document rather than something to publish.
 DESIGN.md
 

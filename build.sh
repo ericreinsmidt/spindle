@@ -16,6 +16,18 @@ cd "${0:a:h}"
 
 [[ -x "$PDC" ]] || { echo "pdc not found at $PDC"; exit 1; }
 
+# The two Roobert fonts belong to Panic and ship with the SDK, so they are not in
+# this repository. They are copied in before every compile instead, which keeps
+# them out of version control without anyone having to do anything by hand.
+FONTS="$SDK/Resources/Fonts/Roobert"
+mkdir -p Source/fonts
+for FONT in Roobert-11-Bold Roobert-20-Medium; do
+	for FILE in "$FONTS/$FONT".fnt "$FONTS/$FONT"-table-*.png; do
+		[[ -f "$FILE" ]] || { echo "Missing $FILE. Is the SDK complete?"; exit 1; }
+		cp "$FILE" Source/fonts/
+	done
+done
+
 echo "building $OUT with SDK $(cat "$SDK/VERSION.txt")"
 "$PDC" Source "$OUT"
 echo "ok: $OUT"

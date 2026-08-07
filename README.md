@@ -232,6 +232,7 @@ Source/                the Lua app
   artwork.lua            keeps album art out of the display inversion
   glyphs.lua             the playback state marks, as bitmaps
   screen_*.lua           the four screens
+  fonts/                 copied from the SDK by build.sh, not in this repository
   visualizers.lua        plugin registry and the per frame context
   viz_*.lua              the visualizers themselves
 tools/
@@ -266,6 +267,11 @@ rather than on a rectangle of its own.
 ## License
 
 [0BSD](LICENSE). Do what you like with it.
+
+Two things in a built copy are not mine to license that way, and neither is in
+this repository. The Roobert fonts belong to Panic and ship with the SDK, so
+`build.sh` copies them in from there before each compile rather than keeping
+them here. And the SDK itself is Panic's, used under its own agreement.
 
 Playdate is a registered trademark of Panic. This is a personal project and is
 not affiliated with or endorsed by them.

@@ -238,7 +238,7 @@ Source/                the Lua app
 tools/
   ingest.py              music folder in, Playdate data out
   make_launcher_art.py   launcher art, cover marks and the README logos
-assets/                the photograph the launcher art is generated from
+assets/                the drawing the launcher art is generated from
 docs/                  the README logos
 ```
 
@@ -253,7 +253,7 @@ knows nothing else about the app.
 python3 tools/make_launcher_art.py
 ```
 
-Reads `assets/adapter-45rpm.webp` and writes the launcher icon and card, the 60
+Reads `assets/adapter-45rpm.png` and writes the launcher icon and card, the 60
 frames of the card's rotation, the adapter marks the app draws where a cover is
 missing, and the two logos above. Generated files are committed, so the project
 builds without running this first.

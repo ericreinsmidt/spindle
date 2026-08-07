@@ -26,7 +26,7 @@ import numpy
 from PIL import Image, ImageChops, ImageDraw, ImageFont
 
 PROJECT_FOLDER = Path(__file__).parent.parent
-SOURCE_IMAGE_PATH = PROJECT_FOLDER / "assets" / "adapter-45rpm.webp"
+SOURCE_IMAGE_PATH = PROJECT_FOLDER / "assets" / "adapter-45rpm.png"
 OUTPUT_FOLDER = PROJECT_FOLDER / "Source" / "launcher"
 
 # Where the README's logo goes. Separate from the launcher art because it is a
@@ -88,9 +88,9 @@ TICKS_PER_FRAME = 1
 
 def load_adapter_mask():
     """
-    Load the source photograph and reduce it to a mask of the adapter: black
-    where the plastic is, white everywhere else, centered on the axis it should
-    rotate about.
+    Load the source artwork and reduce it to a mask of the adapter: black where
+    the plastic is, white everywhere else, centered on the axis it should rotate
+    about.
 
     Centring is the part that matters. Using the bounding box center makes the
     adapter wobble when it turns, because the curved arms do not sit
@@ -102,8 +102,10 @@ def load_adapter_mask():
     source = Image.open(SOURCE_IMAGE_PATH).convert("RGB")
     pixels = numpy.asarray(source, dtype=numpy.int16)
 
-    # Redness separates the plastic from the white background far better than
-    # brightness does, because red converts to a mid gray.
+    # Redness separates the plastic from the background far better than
+    # brightness does, because red converts to a mid gray. It also does not care
+    # what the background is: white scores near zero and the green key scores
+    # negative, so both fall the same side of the threshold.
     redness = pixels[:, :, 0] - (pixels[:, :, 1] + pixels[:, :, 2]) // 2
     isPlastic = redness > REDNESS_THRESHOLD
 

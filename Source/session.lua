@@ -37,6 +37,22 @@ local SESSION_FORMAT_VERSION <const> = 1
 -- seconds is close enough that you come back somewhere you recognize.
 local HEARTBEAT_INTERVAL_MILLISECONDS <const> = 30 * 1000
 
+-- How long the last save took, and the worst one so far, both in milliseconds.
+--
+-- Written into the record itself rather than reported anywhere, because this is
+-- here to answer one question: whether the periodic save is what can be heard as
+-- an occasional hitch in the music. This device's storage is slow, the save
+-- happens every thirty seconds while playing, and a stutter every thirty seconds
+-- is exactly the shape of the complaint. Guessing at that would be guessing;
+-- these two numbers turn it into a reading, taken on the hardware, under real
+-- playback, at no cost worth measuring.
+--
+-- If it turns out to be a millisecond, the hitch is something else and these can
+-- go. If it turns out to be two hundred, the save has to stop happening while
+-- the music is playing.
+local lastSaveDurationInMilliseconds = 0
+local worstSaveDurationInMilliseconds = 0
+
 local lastSaveInMilliseconds = 0
 
 
@@ -90,14 +106,23 @@ function Session.save(endedCleanly)
         playMode = Player.playMode,
         repeatMode = Player.repeatMode,
         endedCleanly = endedCleanly and true or false,
+
+        -- How long the previous save took, since a save cannot time itself.
+        saveMilliseconds = lastSaveDurationInMilliseconds,
+        worstSaveMilliseconds = worstSaveDurationInMilliseconds,
     }
 
     -- The third argument turns pretty printing off. This file is rewritten
     -- every thirty seconds while music plays, and indentation would triple the
     -- size of something nobody is ever going to read.
+    local startedAtMilliseconds = playdate.getCurrentTimeMilliseconds()
     local writeSucceeded = pcall(playdate.datastore.write, record, SESSION_FILE_NAME, false)
 
     lastSaveInMilliseconds = playdate.getCurrentTimeMilliseconds()
+    lastSaveDurationInMilliseconds = lastSaveInMilliseconds - startedAtMilliseconds
+    if lastSaveDurationInMilliseconds > worstSaveDurationInMilliseconds then
+        worstSaveDurationInMilliseconds = lastSaveDurationInMilliseconds
+    end
     return writeSucceeded
 end
 

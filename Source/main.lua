@@ -76,25 +76,13 @@ local function drawStartupError()
 end
 
 
-local function setUpSystemMenu()
-    local systemMenu = playdate.getSystemMenu()
-
-    -- Audio stops when the device locks, so the three minute auto-lock would
-    -- silently kill playback part way through a record. It is disabled by
-    -- default and exposed here in case someone wants the normal behavior.
-    systemMenu:addCheckmarkMenuItem("keep awake", true, function(shouldKeepAwake)
-        playdate.setAutoLockDisabled(shouldKeepAwake)
-    end)
-
-    -- A development aid rather than something to leave on. Shows how long each
-    -- visualizer takes to draw, against a 33 millisecond budget at 30Hz.
-    systemMenu:addCheckmarkMenuItem("viz timings", false, function(shouldShow)
-        ScreenVisualizer.showTimings = shouldShow
-        if not shouldShow then
-            ScreenVisualizer.writeTimingReport()
-        end
-    end)
-end
+-- Nothing is added to the system menu.
+--
+-- Two things used to be. A "keep awake" checkbox, which only ever existed to
+-- turn off something the app needs on: audio stops dead when the device locks,
+-- so auto-lock is disabled at startup and nobody wants it back. And a "viz
+-- timings" checkbox, which was a development aid and is switched off in
+-- screen_visualizer.lua by a constant rather than by a menu item now.
 
 
 -- ---------------------------------------------------------------------------
@@ -126,8 +114,6 @@ playdate.display.setInverted(true)
 math.randomseed(playdate.getSecondsSinceEpoch())
 
 if Library.load() then
-    setUpSystemMenu()
-
     -- Pick up where the last session left off. Whether the music starts again
     -- by itself depends on how that session ended, which session.lua works out
     -- from the file it saved. When there is nothing to restore this does

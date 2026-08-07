@@ -62,9 +62,20 @@ local visualizerErrorMessage = nil
 -- the worst single frame seen.
 local drawTimingsByName = {}
 
--- Whether to show the timing overlay. Off by default, since it is a
--- development aid rather than something to look at while listening.
-ScreenVisualizer.showTimings = false
+-- Per visualizer draw timing, all of it.
+--
+-- Off, and off in a way that costs nothing rather than merely hiding the
+-- display: the measurement itself does not run and neither does the file write.
+-- That write was the real reason to switch this off rather than leave it. It
+-- happened on every exit from this screen whether the overlay was showing or
+-- not, so backing out of a visualizer wrote a file in the middle of playback,
+-- which is a thing this device's storage is slow enough to be heard doing.
+--
+-- Set this to true to get it all back, including the menu item's job, which is
+-- to say the overlay is on. There is no menu item any more.
+local TIMINGS_ENABLED <const> = false
+
+ScreenVisualizer.showTimings = TIMINGS_ENABLED
 
 -- Where the timing report is written, inside the app's data folder.
 local TIMING_REPORT_FILE_NAME <const> = "visualizer-timings.txt"
@@ -106,6 +117,10 @@ end
 -- is rewritten periodically while the overlay is up rather than only on exit,
 -- so a failure is visible while you are still standing in front of it.
 function ScreenVisualizer.writeTimingReport()
+    if not TIMINGS_ENABLED then
+        return false
+    end
+
     lastTimingReportAttemptAtMilliseconds = playdate.getCurrentTimeMilliseconds()
 
     local reportFile, openError =
@@ -201,7 +216,7 @@ function ScreenVisualizer.update()
     -- Keep the report up to date while the overlay is being watched, so the
     -- status line in it reflects a write that just happened rather than one
     -- from the last time the screen was left.
-    if ScreenVisualizer.showTimings
+    if TIMINGS_ENABLED and ScreenVisualizer.showTimings
         and playdate.getCurrentTimeMilliseconds() - lastTimingReportAttemptAtMilliseconds
             >= TIMING_REPORT_REWRITE_INTERVAL_MILLISECONDS then
         ScreenVisualizer.writeTimingReport()
@@ -269,14 +284,17 @@ function ScreenVisualizer.draw()
     -- A visualizer is a plugin, and a plugin that throws should not take the
     -- player down with it. Catching here means a broken one shows a message
     -- and the rest keep working.
-    local drawStartedAtMilliseconds = playdate.getCurrentTimeMilliseconds()
+    local drawStartedAtMilliseconds = TIMINGS_ENABLED
+        and playdate.getCurrentTimeMilliseconds() or 0
     local drawSucceeded, drawError = pcall(function() visualizer:draw(context) end)
     if not drawSucceeded then
         visualizerErrorMessage = tostring(drawError)
         return
     end
-    recordDrawTiming(visualizer.name,
-        playdate.getCurrentTimeMilliseconds() - drawStartedAtMilliseconds)
+    if TIMINGS_ENABLED then
+        recordDrawTiming(visualizer.name,
+            playdate.getCurrentTimeMilliseconds() - drawStartedAtMilliseconds)
+    end
 
     -- Both overlays set the font explicitly. Whichever screen ran last leaves
     -- its own font selected, and the boxes here are sized by measuring the text,
@@ -284,7 +302,7 @@ function ScreenVisualizer.draw()
     -- another the moment the order of screens changed.
     graphics.setFont(Typography.body)
 
-    if ScreenVisualizer.showTimings then
+    if TIMINGS_ENABLED and ScreenVisualizer.showTimings then
         local timing = drawTimingsByName[visualizer.name]
         local numbersLine = string.format("%.0fms avg  %.0fms worst  %d fps",
             timing.totalMilliseconds / timing.sampleCount,

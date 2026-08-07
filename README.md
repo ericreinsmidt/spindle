@@ -91,10 +91,10 @@ unlocks it, with a ring filling to show the hold registering.
 
 ## Requirements
 
-**On the Playdate**, nothing beyond the device itself. Everything is prepared in
+**On the Playdate:** nothing beyond the device itself. Everything is prepared in
 advance and the app does no work on startup beyond reading one index file.
 
-**On a Mac**, to convert your music:
+**On a Mac:** what it takes to convert your music.
 
 | | |
 |---|---|

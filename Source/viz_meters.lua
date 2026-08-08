@@ -81,7 +81,20 @@ Visualizers.register(SpectrumBars)
 -- The longest spoke now reaches 112 and the ring sits at 116, just outside it,
 -- which keeps the ring whole and still lets the spokes nearly touch it on a
 -- loud passage.
-local SPOKE_REACH <const> = 66
+local SPOKE_REACH <const> = 74
+
+-- The figure is drawn as an ellipse rather than a circle, stretched sideways to
+-- the shape of the screen.
+--
+-- A circle here can only ever be as big as the screen is tall, so it reached 112
+-- pixels of the 120 available vertically while leaving 88 pixels of nothing down
+-- each side. It filled the height and still read as small, because what you
+-- notice is the empty width.
+--
+-- 1.55 is a little under the screen's own 400 by 240, which is 1.67. Going all
+-- the way looks stretched; stopping short of it fills the space while still
+-- reading as round.
+local HORIZONTAL_STRETCH <const> = 1.55
 local BEAT_RING_RADIUS <const> = 116
 
 local RadialSpectrum = {
@@ -98,7 +111,7 @@ function RadialSpectrum:draw(context)
 
     local centerX = context.width / 2
     local centerY = context.height / 2
-    local innerRadius = 26 + context.energy * 20
+    local innerRadius = 32 + context.energy * 22
 
     -- Each band is drawn twice, mirrored across the vertical axis, so the
     -- figure is symmetrical rather than lopsided.
@@ -118,7 +131,7 @@ function RadialSpectrum:draw(context)
         local spokeLength = innerRadius + (bandValue / 255) * SPOKE_REACH
 
         local spokeAngle = self.rotation + (spokeNumber / spokeCount) * math.pi * 2
-        local pointX = centerX + math.cos(spokeAngle) * spokeLength
+        local pointX = centerX + math.cos(spokeAngle) * spokeLength * HORIZONTAL_STRETCH
         local pointY = centerY + math.sin(spokeAngle) * spokeLength
 
         if previousX then

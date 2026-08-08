@@ -62,6 +62,7 @@ function CellularAutomaton:reset()
         self.currentRow[column] = 0
     end
     self.currentRow[self.columnCount // 2] = 1
+    self.rowsSinceSeed = 0
 
     -- Two images are used so the history can be scrolled by drawing one into
     -- the other at an offset, then swapping them.
@@ -85,11 +86,35 @@ function CellularAutomaton:draw(context)
 
     local bass, mid, treble = Visualizers.bassMidTreble(context)
 
-    -- A beat switches rule, so the texture changes character on the music.
-    -- These four are the visually interesting elementary rules.
-    if context.beat then
-        local interestingRules = { 30, 90, 110, 150 }
-        self.ruleNumber = interestingRules[math.random(#interestingRules)]
+    -- The pattern is restarted from a single cell rather than run forever, and
+    -- the rule is only changed at that moment.
+    --
+    -- It used to switch rule on every beat, which is why the Sierpinski triangle
+    -- the thing is named after was almost never visible. A gasket takes a full
+    -- screen of rows to draw itself, about thirty frames, and any rule change
+    -- part way through replaces it with something else. On most music the rule
+    -- changed several times a second, so what you saw was the noise four rules
+    -- make when interleaved, with the triangle appearing only in the gap after a
+    -- reset.
+    --
+    -- Now a run is left alone until it has had time to draw a whole screen, and
+    -- then the next beat starts a fresh one from a single cell. The triangle
+    -- grows from its apex, fills the screen, and is replaced by another.
+    self.rowsSinceSeed = (self.rowsSinceSeed or 0) + 1
+
+    local screenIsFull = self.rowsSinceSeed >= (240 // self.cellSize)
+    if screenIsFull and context.beat then
+        -- Rule 90 is the one that draws the triangle, so it comes up half the
+        -- time rather than a quarter. The other three are here for variety and
+        -- all produce something worth looking at on their own.
+        local rules = { 90, 90, 30, 110, 150 }
+        self.ruleNumber = rules[math.random(#rules)]
+
+        for column = 1, self.columnCount do
+            self.currentRow[column] = 0
+        end
+        self.currentRow[self.columnCount // 2] = 1
+        self.rowsSinceSeed = 0
     end
 
     -- The crank tilts the scroll sideways, which shears the whole pattern.
@@ -121,15 +146,25 @@ function CellularAutomaton:draw(context)
         )
     end
 
-    -- Treble sprinkles fresh cells in, so a busy passage keeps injecting new
-    -- structure instead of letting the pattern settle.
-    local sprinkleCount = math.floor(treble * 6)
-    for _ = 1, sprinkleCount do
-        nextRow[math.random(columnCount)] = 1
+    -- Treble sprinkles fresh cells in, but only once the triangle has finished
+    -- drawing itself.
+    --
+    -- A single stray cell anywhere in a rule 90 field starts its own cone of
+    -- pattern, which grows until it collides with the real one and destroys it.
+    -- Six of them a frame is why the screen turned to noise within a second of
+    -- every reset. Held back until the gasket is complete, they add texture to
+    -- something that has already been seen rather than preventing it being seen
+    -- at all.
+    if screenIsFull then
+        local sprinkleCount = math.floor(treble * 4)
+        for _ = 1, sprinkleCount do
+            nextRow[math.random(columnCount)] = 1
+        end
     end
 
-    -- Bass widens the seed at the center, which thickens the growth.
-    if bass > 0.5 then
+    -- Bass widens the seed at the center, once the figure is drawn, for the
+    -- same reason.
+    if screenIsFull and bass > 0.5 then
         nextRow[columnCount // 2] = 1
     end
 
@@ -190,6 +225,28 @@ Visualizers.register(CellularAutomaton)
 --
 -- Shown as Koi, for how a flock of them moves in a pond.
 
+-- How close a boid gets to the attractor before it stops being pulled in and
+-- starts being pushed out.
+--
+-- Without this every boid ends up sitting on the attractor. The pull is
+-- proportional to distance, so it never lets go, and the flock collapses into a
+-- knot about eighty pixels across with the rest of the screen empty. That is not
+-- a flock, it is a pile.
+--
+-- Real flocking around a point is an orbit, not a collision, so inside this
+-- radius the pull reverses. A boid that arrives is pushed back out, overshoots,
+-- is pulled in again, and the result is a ring that circulates and breathes
+-- instead of a dot. The same fix Slime needed for its food source.
+-- The push is matched to the pull rather than picked freely. The pull is
+-- proportional to distance, so at the orbit boundary it is radius times
+-- KOI_PULL. Making the push at the middle about the same size means the two
+-- balance into an orbit; making it much larger, which the first attempt did by a
+-- factor of sixty, fires the flock off the screen instead.
+local KOI_ORBIT_RADIUS <const> = 95
+local KOI_PULL <const> = 0.0022
+local KOI_PUSH <const> = KOI_ORBIT_RADIUS * KOI_PULL
+
+
 local Boids = {
     name = "Koi",
     boidCount = 44,
@@ -224,10 +281,27 @@ function Boids:draw(context)
 
     -- Bass tightens the flock, treble pushes them apart, so the shape breathes
     -- with the music.
-    local cohesionStrength = 0.0016 + bass * 0.004
-    local separationStrength = 0.05 + treble * 0.12
-    local separationDistanceSquared = 150 + treble * 400
-    local neighborDistanceSquared = 2600
+    --
+    -- The separation distance is what decides how much of the screen the flock
+    -- occupies, and it was far too small. At twelve to twenty three pixels,
+    -- forty four boids sit in a blob about eighty pixels across whatever else is
+    -- happening, which is why this looked like a knot rather than a flock. It
+    -- covered under five percent of the screen. Simulating the loop offline and
+    -- measuring showed the separation radius is the only lever that moves that
+    -- number: the attractor, the cohesion and the orbit all barely touch it.
+    --
+    -- Forty two to fifty two pixels puts the flock across a little under half the
+    -- screen, which is spread out and still plainly one flock. The strength went
+    -- up with it because the force falls off as one over distance squared, so a
+    -- setting tuned for twelve pixels is nearly nothing at forty.
+    local cohesionStrength = 0.0008 + bass * 0.0018
+    local separationStrength = 1.1 + treble * 0.9
+    local separationDistanceSquared = 1800 + treble * 900
+
+    -- Wider than the separation distance, so alignment and cohesion still act
+    -- across boids that separation is pushing apart. Under it, the flock cannot
+    -- hold together at all.
+    local neighborDistanceSquared = 9000
 
     -- A beat scatters the flock, which then re-forms.
     local scatterImpulse = context.beat and (1.6 + mid * 2.4) or 0
@@ -279,9 +353,26 @@ function Boids:draw(context)
         boid.velocityX = boid.velocityX + separationX * separationStrength
         boid.velocityY = boid.velocityY + separationY * separationStrength
 
-        -- Chase the attractor the crank controls.
-        boid.velocityX = boid.velocityX + (attractorX - boid.x) * 0.0022
-        boid.velocityY = boid.velocityY + (attractorY - boid.y) * 0.0022
+        -- Chase the attractor the crank controls, but orbit it rather than land
+        -- on it. Outside the orbit radius it pulls, inside it pushes.
+        local toAttractorX = attractorX - boid.x
+        local toAttractorY = attractorY - boid.y
+        local attractorDistance =
+            math.sqrt(toAttractorX * toAttractorX + toAttractorY * toAttractorY)
+
+        if attractorDistance > KOI_ORBIT_RADIUS then
+            boid.velocityX = boid.velocityX + toAttractorX * KOI_PULL
+            boid.velocityY = boid.velocityY + toAttractorY * KOI_PULL
+        elseif attractorDistance > 1 then
+            -- Strongest right at the middle and easing off toward the radius, so
+            -- the boundary is somewhere to settle rather than a wall to bounce
+            -- against.
+            local howFarInside = 1 - attractorDistance / KOI_ORBIT_RADIUS
+            boid.velocityX = boid.velocityX
+                - toAttractorX / attractorDistance * KOI_PUSH * howFarInside
+            boid.velocityY = boid.velocityY
+                - toAttractorY / attractorDistance * KOI_PUSH * howFarInside
+        end
 
         if scatterImpulse > 0 then
             boid.velocityX = boid.velocityX + (math.random() * 2 - 1) * scatterImpulse
@@ -374,6 +465,7 @@ local FOOD_BIAS_HANDOVER_DISTANCE <const> = 60
 -- shape rather than sprawling. Physarum models include a random component for
 -- exactly this reason, and it is what turns a tidy shape into a branching one.
 local WANDER_TURN <const> = 0.3
+
 
 -- Agents that reach the middle of the mound get scattered hard instead of being
 -- allowed to settle on it. Without this they arrive and stay, and 170 agents

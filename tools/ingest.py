@@ -124,6 +124,40 @@ def run_command(command_parts, description):
     return result.stdout
 
 
+def default_sdk_folder():
+    """
+    Where the Playdate SDK installs itself, per platform.
+
+    PLAYDATE_SDK_PATH wins if it is set, which is what the SDK's own installer
+    sets and what build.sh reads, so anyone who put the SDK somewhere unusual
+    says so once rather than once per tool.
+    """
+    from_environment = os.environ.get("PLAYDATE_SDK_PATH")
+    if from_environment:
+        return Path(from_environment)
+
+    if sys.platform == "win32":
+        return Path.home() / "Documents" / "PlaydateSDK"
+    if sys.platform == "darwin":
+        return Path.home() / "Developer" / "PlaydateSDK"
+    return Path.home() / "PlaydateSDK"
+
+
+def find_playdate_compiler(sdk_folder):
+    """
+    The pdc executable inside an SDK folder.
+
+    Named pdc.exe on Windows and pdc everywhere else, which is the difference
+    between the tool running and it reporting that the SDK is missing when it is
+    sitting right there.
+    """
+    for name in ("pdc.exe", "pdc") if sys.platform == "win32" else ("pdc",):
+        candidate = sdk_folder / "bin" / name
+        if candidate.exists():
+            return candidate
+    return sdk_folder / "bin" / ("pdc.exe" if sys.platform == "win32" else "pdc")
+
+
 def make_filesystem_slug(text):
     """
     Turn an arbitrary album or track title into something safe to use as a
@@ -854,6 +888,11 @@ def write_library_index(destination_path, albums, playlists):
             for playlist in playlists
         ]
 
+    # UTF-8 explicitly, not the machine's default encoding.
+    #
+    # UTF-8 explicitly, and it matters. ensure_ascii is off, so this text carries
+    # whatever is in the artist and album names, and on Windows write_text
+    # without an encoding uses the locale codepage rather than UTF-8.
     destination_path.write_text(
         json.dumps(index, indent=2, ensure_ascii=False),
         encoding="utf-8",
@@ -877,10 +916,9 @@ def main():
         # installer sets, so honoring it here as well means someone who has
         # installed the SDK anywhere other than the default has to say so once
         # rather than once per tool.
-        default=Path(os.environ.get(
-            "PLAYDATE_SDK_PATH", Path.home() / "Developer" / "PlaydateSDK")),
+        default=None,
         help="Playdate SDK location, used to find pdc. Defaults to "
-             "PLAYDATE_SDK_PATH, or ~/Developer/PlaydateSDK",
+             "PLAYDATE_SDK_PATH, or the usual install folder for this platform",
     )
     argument_parser.add_argument(
         "--only",
@@ -899,9 +937,12 @@ def main():
     rebuilding_artwork_only = arguments.only == "artwork"
     rebuilding_analysis_only = arguments.only == "analysis"
 
-    playdate_compiler = arguments.sdk / "bin" / "pdc"
+    sdk_folder = arguments.sdk or default_sdk_folder()
+    playdate_compiler = find_playdate_compiler(sdk_folder)
     if not playdate_compiler.exists():
         print(f"Could not find pdc at {playdate_compiler}", file=sys.stderr)
+        print("Install the Playdate SDK, or pass --sdk, or set PLAYDATE_SDK_PATH.",
+              file=sys.stderr)
         return 1
 
     if not arguments.source.exists():
@@ -927,8 +968,9 @@ def main():
     staging_folder = Path(tempfile.mkdtemp(prefix="spindle-ingest-"))
     staging_source = staging_folder / "Source"
     staging_source.mkdir()
-    (staging_source / "pdxinfo").write_text("name=staging\nbundleID=com.example.staging\n")
-    (staging_source / "main.lua").write_text("-- staging only\n")
+    (staging_source / "pdxinfo").write_text(
+        "name=staging\nbundleID=com.example.staging\n", encoding="utf-8")
+    (staging_source / "main.lua").write_text("-- staging only\n", encoding="utf-8")
 
     conversion_plan = []
     processed_albums = []

@@ -110,6 +110,10 @@ pip3 install numpy Pillow mutagen
 The SDK is expected at `~/Developer/PlaydateSDK`. Set `PLAYDATE_SDK_PATH` if
 yours is somewhere else, or pass `--sdk` to the ingest tool.
 
+**On Windows**, the same three things are needed and the tool runs the same way,
+but installing them and getting the result onto the device is different enough to
+be worth its own page: [docs/windows.md](docs/windows.md).
+
 Of the three Python packages, `mutagen` is the one you could technically do
 without. Ingest catches its absence and carries on, but without it no tags can
 be read, so every track falls back to its filename and every album needs a

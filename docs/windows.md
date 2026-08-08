@@ -45,8 +45,10 @@ and every album needs a `cover.jpg` sitting beside it.
 The easiest route is winget, which ships with Windows 11 and recent Windows 10:
 
 ```
-winget install Gyan.FFmpeg
+winget install -e --id Gyan.FFmpeg
 ```
+
+winget sets the `PATH` for you.
 
 Close and reopen your terminal afterward so the new `PATH` takes effect, then
 check both tools are visible:
@@ -63,14 +65,29 @@ handle the `PATH` for you as well.
 ### Playdate SDK
 
 Download from [play.date/dev](https://play.date/dev/) and run the installer. It
-sets the `PLAYDATE_SDK_PATH` environment variable, which is how ingest finds it,
-so nothing else is needed. Reopen your terminal after installing so the variable
-is visible to it.
+defaults to `C:\Users\<you>\Documents\PlaydateSDK`.
 
-If ingest cannot find `pdc.exe`, point it at the SDK by hand:
+Unlike the macOS installer, **the Windows one does not set `PLAYDATE_SDK_PATH`
+for you.** Ingest looks in the default location anyway, and also in
+`OneDrive\Documents\PlaydateSDK` in case Windows has redirected your Documents
+folder into OneDrive, which it often does without being asked. So if you took
+the default install, it should just work.
+
+If you installed the SDK anywhere else, either set the variable once or pass the
+path each time.
+
+To set it: open the Start menu, type "Environment Variables", open the panel,
+and add a user variable named `PLAYDATE_SDK_PATH` pointing at your SDK folder.
+Then close and reopen your terminal and check it took:
 
 ```
-py tools\ingest.py --sdk "C:\Users\you\Documents\PlaydateSDK" <music folder> <output folder>
+echo $env:PLAYDATE_SDK_PATH
+```
+
+To pass it instead:
+
+```
+py tools\ingest.py --sdk "D:\PlaydateSDK" <music folder> <output folder>
 ```
 
 ## Laying out your music
@@ -118,15 +135,12 @@ py tools\ingest.py --only analysis <music folder> <output folder>
 
 ## Getting it onto the Playdate
 
-Put the device into data disk mode, where it appears as an ordinary USB drive:
+Connect the Playdate by USB and put it into data disk mode, where it appears as
+an ordinary drive called PLAYDATE. On the device: **Settings, System, Reboot to
+Data Disk.** Holding Lock and Menu and d-pad Left together for a few seconds does
+the same thing.
 
-```
-"%PLAYDATE_SDK_PATH%\bin\pdutil.exe" list
-"%PLAYDATE_SDK_PATH%\bin\pdutil.exe" <the port it listed> datadisk
-```
-
-Recent Playdate OS versions also offer this on the device itself under Settings,
-if you would rather not use the command line.
+To leave data disk mode afterward, hold A for a few seconds.
 
 Once the drive appears, copy in two things:
 
@@ -137,8 +151,8 @@ That second one is the contents of the folder, not the folder itself. When it is
 right, the device has `Data\com.reinsmidt.spindle\library.json` sitting beside
 `music\`, `art\` and `analysis\`.
 
-Eject the drive properly before unplugging, the same as any USB stick. The
-Playdate reboots itself when you do.
+Eject the drive properly before unplugging, the same as any USB stick, then hold
+A on the device to leave data disk mode.
 
 ## If something goes wrong
 
@@ -149,9 +163,10 @@ to `python.exe`.
 **"ffmpeg failed"** or **"ffprobe failed"**: FFmpeg is not on your `PATH`. Check
 with `ffmpeg -version` in a freshly opened terminal.
 
-**"Could not find pdc"**: the SDK is not installed, or `PLAYDATE_SDK_PATH` is not
-set in the terminal you are using. Reopen the terminal after installing, or pass
-`--sdk`.
+**"Could not find pdc"**: the message says the exact path it looked in. If the
+SDK is somewhere else, set `PLAYDATE_SDK_PATH` or pass `--sdk`. Remember that
+Windows does not set that variable for you, and that a terminal opened before you
+set it will not see it.
 
 **Spindle opens on an empty library**: the converted files are in the wrong
 place. Check that `Data\com.reinsmidt.spindle\library.json` exists on the device.
@@ -162,10 +177,10 @@ not saved as UTF-8. Re-save it with UTF-8 encoding.
 
 ## A note on what is tested
 
-The tool is written to be platform independent and the two things that were not
-have been fixed: it now looks for `pdc.exe` on Windows, and it knows the SDK's
-Windows install location. Nothing else in it makes an assumption about the
-operating system.
+The tool is written to be platform independent and the things that were not have
+been fixed: it looks for `pdc.exe` on Windows, it knows the SDK's Windows install
+location, and it checks the OneDrive-redirected Documents folder as well as the
+real one. Nothing else in it makes an assumption about the operating system.
 
 It has not been run end to end on Windows by the author, who has no Windows
 machine. If you hit something this document does not cover, an issue with the

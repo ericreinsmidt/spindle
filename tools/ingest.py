@@ -137,7 +137,23 @@ def default_sdk_folder():
         return Path(from_environment)
 
     if sys.platform == "win32":
+        # Two places, because Windows may or may not have redirected Documents
+        # into OneDrive, and that is usually something that happened to the
+        # machine rather than something its owner chose. The installer's default
+        # is Documents\PlaydateSDK either way, so which one it really is depends
+        # on a setting most people do not know they have.
+        #
+        # This matters more on Windows than it would elsewhere, because the
+        # installer does not set PLAYDATE_SDK_PATH there. On macOS and Linux the
+        # variable is usually already right and this is a fallback; on Windows it
+        # is often the only thing standing between the tool and a confusing
+        # report that the SDK is missing.
+        for candidate in (Path.home() / "Documents" / "PlaydateSDK",
+                          Path.home() / "OneDrive" / "Documents" / "PlaydateSDK"):
+            if candidate.is_dir():
+                return candidate
         return Path.home() / "Documents" / "PlaydateSDK"
+
     if sys.platform == "darwin":
         return Path.home() / "Developer" / "PlaydateSDK"
     return Path.home() / "PlaydateSDK"

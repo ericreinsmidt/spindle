@@ -133,7 +133,10 @@ variable; if you did not, check the folder the installer used instead.
 
 ## Laying out your music
 
-One folder per album. Track order and titles come from the files' own tags.
+One folder per album. Titles come from the files' own tags. Track order comes
+from the filenames, sorted, so name them so they sort right: `01 ...`, `02 ...`
+and so on. An `_album.m3u` overrides that if you would rather not rename
+anything.
 
 ```
 music\

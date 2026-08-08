@@ -95,7 +95,15 @@ local SPOKE_REACH <const> = 74
 -- the way looks stretched; stopping short of it fills the space while still
 -- reading as round.
 local HORIZONTAL_STRETCH <const> = 1.55
-local BEAT_RING_RADIUS <const> = 116
+-- The ring that flashes on a beat. An ellipse rather than a circle, stretched
+-- by exactly the same amount as the spokes, so the figure it surrounds stays
+-- inside it.
+--
+-- It was a circle at radius 116. Once the spokes were stretched sideways they
+-- reached nearly 200 pixels, so on every beat a circle appeared with most of the
+-- figure sticking out through it. Two shapes disagreeing about the same centre
+-- reads as a mistake, which it was.
+local BEAT_RING_RADIUS <const> = 118
 
 local RadialSpectrum = {
     name = "Maigasa",
@@ -151,7 +159,11 @@ function RadialSpectrum:draw(context)
     end
 
     if context.beat then
-        graphics.drawCircleAtPoint(centerX, centerY, BEAT_RING_RADIUS)
+        graphics.drawEllipseInRect(
+            centerX - BEAT_RING_RADIUS * HORIZONTAL_STRETCH,
+            centerY - BEAT_RING_RADIUS,
+            BEAT_RING_RADIUS * HORIZONTAL_STRETCH * 2,
+            BEAT_RING_RADIUS * 2)
     end
 end
 

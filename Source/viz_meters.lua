@@ -136,7 +136,13 @@ function RadialSpectrum:draw(context)
             or (spokeCount - spokeNumber + 1)
 
         local bandValue = context.bands[bandNumber] or 0
+        -- Capped at the ring, so the loudest moments flatten against it rather
+        -- than pushing through it. At full energy and a maxed band the reach
+        -- would otherwise be 128 against a ring at 118.
         local spokeLength = innerRadius + (bandValue / 255) * SPOKE_REACH
+        if spokeLength > BEAT_RING_RADIUS then
+            spokeLength = BEAT_RING_RADIUS
+        end
 
         local spokeAngle = self.rotation + (spokeNumber / spokeCount) * math.pi * 2
         local pointX = centerX + math.cos(spokeAngle) * spokeLength * HORIZONTAL_STRETCH

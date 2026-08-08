@@ -4,7 +4,7 @@ Spindle's app runs on the Playdate like any other, but the music has to be
 converted on a computer first. The tool that does it, `tools/ingest.py`, runs on
 Windows. This is what you need and how to run it.
 
-You do not need to build the app. Download `Spindle.pdx.zip` from
+You do not need to build the app. Download `Spindle-1.0.zip` from
 [Releases](https://github.com/ericreinsmidt/spindle/releases) and install it
 either by uploading it at
 [play.date/account/sideload](https://play.date/account/sideload) and fetching it
@@ -14,7 +14,7 @@ end of this page. Only the music conversion needs anything installed, and
 
 ## Getting the conversion tool
 
-`Spindle.pdx.zip` is the app and nothing else. The tool that converts your music
+`Spindle-1.0.zip` is the app and nothing else. The tool that converts your music
 is the other download on the same
 [release](https://github.com/ericreinsmidt/spindle/releases) page,
 `spindle-tools-1.0.zip`.
@@ -190,8 +190,13 @@ Once the drive appears, copy in two things:
   folder itself. When it is right, the device has
   `Data\com.reinsmidt.spindle\library.json` sitting beside `music\`, `art\`
   and `analysis\`.
-- **The app**, if you did not sideload it through the website. Unzip
-  `Spindle.pdx.zip` and put the whole `Spindle.pdx` folder into `Games\`.
+- **The app**, if you did not sideload it through the website. Extract
+  `Spindle-1.0.zip`, which gives you a folder `Spindle-1.0` with a folder
+  `Spindle.pdx` inside it. Copy **`Spindle.pdx`**, the inner one, into `Games\`.
+
+  Copy the inner folder, not the one Explorer made. When it is right the device
+  has `Games\Spindle.pdx\pdxinfo`. If it has
+  `Games\Spindle.pdx\Spindle.pdx\pdxinfo`, the app will not start.
 
 Eject the drive properly before unplugging, the same as any USB stick, then hold
 A on the device to leave data disk mode.
@@ -209,6 +214,13 @@ with `ffmpeg -version` in a freshly opened terminal.
 SDK is somewhere else, set `PLAYDATE_SDK_PATH` or pass `--sdk`. Remember that
 Windows does not set that variable for you, and that a terminal opened before you
 set it will not see it.
+
+**"pdxinfo file not found"**, or the app shows its card and then dies: you have
+a `Spindle.pdx` inside another `Spindle.pdx`. Extracting a zip in Explorer makes
+a folder named after the zip and puts the contents inside it, so it is easy to
+copy the outer one. Open `Games\Spindle.pdx\` on the device; if there is
+another `Spindle.pdx` in there, move the inner one up a level and delete the
+outer.
 
 **Spindle opens on an empty library**: the converted files are in the wrong
 place. Check that `Data\com.reinsmidt.spindle\library.json` exists on the device.

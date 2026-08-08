@@ -229,15 +229,24 @@ The usual mistake is copying the output folder itself rather than its contents.
 **Accented artist or album names look wrong**: your `_album.m3u` or playlist is
 not saved as UTF-8. Re-save it with UTF-8 encoding.
 
-## A note on what is tested
+## What has been tested
 
-The tool is written to be platform independent and the things that were not have
-been fixed: it looks for `pdc.exe` on Windows, it knows the SDK's Windows install
-location, and it checks the OneDrive-redirected Documents folder as well as the
-real one. Nothing else in it makes an assumption about the operating system.
+This page has been followed from end to end on Windows: installing the three
+dependencies, converting a real library of three albums and thirty seven tracks,
+copying it to the device, and playing it. The files that came out were correct in
+every respect that could be checked, with forward slashes throughout the index
+and the right headers on the audio, artwork and analysis files.
 
-What has not happened is a run from end to end on Windows. Everything above is
-either checked against the code or against Panic's and Microsoft's own
-documentation, but that is not the same as having done it. If you hit something
-this page does not cover, an issue with the exact command and the exact error is
-genuinely useful.
+One thing did go wrong on that run, and it is fixed. The app download used to be
+called `Spindle.pdx.zip`, which Explorer extracts into a folder of the same name,
+so you ended up with a `Spindle.pdx` inside a `Spindle.pdx` and the launcher
+reported `pdxinfo file not found`. That is why the download is now
+`Spindle-1.0.zip`.
+
+Two branches have not been exercised: the fallback that looks for the SDK inside
+a OneDrive-redirected Documents folder, and setting `PLAYDATE_SDK_PATH` by hand
+for an SDK installed somewhere unusual. Both are short and both fail loudly
+rather than quietly, but neither has been run.
+
+If you hit something this page does not cover, an issue with the exact command
+and the exact error is genuinely useful.

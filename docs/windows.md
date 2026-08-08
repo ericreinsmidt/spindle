@@ -5,9 +5,30 @@ converted on a computer first. The tool that does it, `tools/ingest.py`, runs on
 Windows. This is what you need and how to run it.
 
 You do not need to build the app. Download `Spindle.pdx.zip` from
-[Releases](https://github.com/ericreinsmidt/spindle/releases) and sideload it.
-Only the music conversion needs anything installed, and `build.sh` is a shell
-script you can ignore entirely.
+[Releases](https://github.com/ericreinsmidt/spindle/releases) and install it
+either by uploading it at
+[play.date/account/sideload](https://play.date/account/sideload) and fetching it
+from your device's Settings, or by copying it across yourself as described at the
+end of this page. Only the music conversion needs anything installed, and
+`build.sh` is a shell script you can ignore entirely.
+
+## Getting the conversion tool
+
+The release zip contains the app and nothing else. The conversion tool lives in
+this repository, so you need a copy of that too.
+
+On the repository's front page, click the green **Code** button, then **Download
+ZIP**. Extract it anywhere. You will get a folder called `spindle-main`, and
+every command below is run from inside it:
+
+```
+cd C:\Users\you\Downloads\spindle-main
+```
+
+If you have git, `git clone https://github.com/ericreinsmidt/spindle.git` does
+the same thing and makes updating easier later.
+
+You will not build anything from it. The only part you need is `tools\ingest.py`.
 
 ## What you need
 
@@ -22,10 +43,12 @@ and image formats are made by `pdc` and by nothing else.
 
 ### Python
 
+Any Python 3 will do; ingest uses nothing newer than f-strings.
+
 Install from [python.org](https://www.python.org/downloads/windows/) or the
-Microsoft Store. During a python.org install, tick **Add python.exe to PATH** on
-the first screen; it is off by default and skipping it is the single most common
-reason the commands below do not work.
+Microsoft Store. On the python.org installer's first screen, make sure **Add
+python.exe to PATH** is ticked. Missing it is the single most common reason the
+commands below report that `py` or `python` is not recognised.
 
 Then, in PowerShell or Command Prompt:
 
@@ -90,6 +113,21 @@ To pass it instead:
 py tools\ingest.py --sdk "D:\PlaydateSDK" <music folder> <output folder>
 ```
 
+### Checking it is all there
+
+Three commands, before pointing anything at your music. Each should print
+something rather than complain:
+
+```
+py tools\ingest.py --help
+ffmpeg -version
+dir "$env:PLAYDATE_SDK_PATH\bin\pdc.exe"
+```
+
+The first proves Python has `numpy` and `Pillow`, since ingest imports both
+before it can print anything at all. The last one only works if you set the
+variable; if you did not, check the folder the installer used instead.
+
 ## Laying out your music
 
 One folder per album. Track order and titles come from the files' own tags.
@@ -108,9 +146,9 @@ playlists\
 Anything FFmpeg can decode works as a source: MP3, FLAC, M4A, WAV.
 
 The `_album.m3u` and playlist formats are the same on every platform and are
-documented in the [README](../README.md#preparing-your-music). Save them as
-UTF-8 if they contain accented characters; Notepad has done that by default
-since Windows 10 version 1903, but older editors may not.
+documented in the [README](../README.md#preparing-your-music). If they contain
+accented characters, save them as UTF-8. Notepad's Save As dialog has an
+Encoding dropdown for this.
 
 ## Converting
 
@@ -121,10 +159,10 @@ py tools\ingest.py "C:\Users\you\Music\Spindle" "C:\Users\you\Desktop\spindle-li
 Quote both paths. Windows user folders are full of spaces and an unquoted path
 splits into two arguments.
 
-Expect roughly a second per track. The output is several times the size of your
-source music, because ADPCM is a lightly compressed format rather than a heavily
-compressed one: about 2.6 MB per minute, so a 4 GB Playdate holds roughly
-twenty five hours.
+Expect very roughly a second per track, measured on a Mac. The output is several
+times the size of your source music, because ADPCM is lightly compressed rather
+than heavily compressed: about 2.6 MB per minute, so a 4 GB Playdate holds
+roughly twenty five hours.
 
 Rebuilding one part without redoing everything:
 
@@ -144,12 +182,13 @@ To leave data disk mode afterward, hold A for a few seconds.
 
 Once the drive appears, copy in two things:
 
-- `Spindle.pdx` from the release zip goes into `Games\`
-- Everything inside your output folder goes into `Data\com.reinsmidt.spindle\`
-
-That second one is the contents of the folder, not the folder itself. When it is
-right, the device has `Data\com.reinsmidt.spindle\library.json` sitting beside
-`music\`, `art\` and `analysis\`.
+- **The music.** Everything inside your output folder goes into
+  `Data\com.reinsmidt.spindle\`. That is the contents of the folder, not the
+  folder itself. When it is right, the device has
+  `Data\com.reinsmidt.spindle\library.json` sitting beside `music\`, `art\`
+  and `analysis\`.
+- **The app**, if you did not sideload it through the website. Unzip
+  `Spindle.pdx.zip` and put the whole `Spindle.pdx` folder into `Games\`.
 
 Eject the drive properly before unplugging, the same as any USB stick, then hold
 A on the device to leave data disk mode.
@@ -182,6 +221,8 @@ been fixed: it looks for `pdc.exe` on Windows, it knows the SDK's Windows instal
 location, and it checks the OneDrive-redirected Documents folder as well as the
 real one. Nothing else in it makes an assumption about the operating system.
 
-It has not been run end to end on Windows by the author, who has no Windows
-machine. If you hit something this document does not cover, an issue with the
-exact command and the exact error is genuinely useful.
+What has not happened is a run from end to end on Windows. Everything above is
+either checked against the code or against Panic's and Microsoft's own
+documentation, but that is not the same as having done it. If you hit something
+this page does not cover, an issue with the exact command and the exact error is
+genuinely useful.

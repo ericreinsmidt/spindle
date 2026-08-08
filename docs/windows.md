@@ -14,21 +14,24 @@ end of this page. Only the music conversion needs anything installed, and
 
 ## Getting the conversion tool
 
-The release zip contains the app and nothing else. The conversion tool lives in
-this repository, so you need a copy of that too.
+`Spindle.pdx.zip` is the app and nothing else. The tool that converts your music
+is the other download on the same
+[release](https://github.com/ericreinsmidt/spindle/releases) page,
+`spindle-tools-1.0.zip`.
 
-On the repository's front page, click the green **Code** button, then **Download
-ZIP**. Extract it anywhere. You will get a folder called `spindle-main`, and
-every command below is run from inside it:
+Extract it anywhere. Every command below is run from inside the folder it makes:
 
 ```
-cd C:\Users\you\Downloads\spindle-main
+cd C:\Users\you\Downloads\spindle-tools-1.0
 ```
 
-If you have git, `git clone https://github.com/ericreinsmidt/spindle.git` does
-the same thing and makes updating easier later.
+Take the version that matches your app. The tools and the app agree about file
+formats, and a mismatched pair is a problem you should not have to think about.
 
-You will not build anything from it. The only part you need is `tools\ingest.py`.
+The whole repository works just as well if you would rather have it, either from
+the green **Code** button and **Download ZIP**, or with
+`git clone https://github.com/ericreinsmidt/spindle.git`. The layout is the same,
+so every command below is unchanged.
 
 ## What you need
 

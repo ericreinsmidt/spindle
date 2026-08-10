@@ -24,8 +24,8 @@ a desk or a nightstand showing something worth looking at while a record plays,
 with the crank as a control you reach for rather than a novelty.
 
 <div align="center">
-  
-https://github.com/user-attachments/assets/02fe13c1-300b-4b5c-9dac-a887889eaf1e
+
+https://github.com/user-attachments/assets/6c3f8358-c32e-440f-9df6-60babb959f1f
 
 </div>
 

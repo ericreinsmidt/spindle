@@ -116,6 +116,19 @@ ADAPTER_REST_ROTATION = 60
 # rotation reads as continuous rather than stepped.
 ANIMATION_FRAME_COUNT = 60
 
+# The spinner on the empty screen. Sixty frames over the adapter's 120 degrees of
+# symmetry is two degrees a frame, the same resolution the launcher animation
+# uses, which is fine enough that a slow turn does not step.
+#
+# Laid out ten across and six down rather than in one long strip, because the
+# Playdate reads an image table as cells left to right and top to bottom and does
+# not care which, and a 1400 by 840 sheet is a friendlier shape than a 8400 by
+# 140 one.
+SPIN_FRAME_COUNT = 60
+SPIN_FRAME_SIZE = 140
+SPIN_COLUMNS = 10
+SPIN_INSET = 3
+
 # How many launcher ticks each frame is held for. Holding a frame for several
 # ticks slows the rotation, but it also makes each step land as a visible jump.
 # Holding for one tick and using more frames gives the same kind of speed with
@@ -268,6 +281,56 @@ def build_card(mask, rotation_degrees):
     )
 
     return to_one_bit(card)
+
+
+def build_spin_table(mask):
+    """
+    The adapter alone, cut out, at every angle its three fold symmetry needs.
+
+    This is the spinner on the empty screen, so it is the bare shape rather than
+    a square: no paper behind it, only the adapter, which reads as a record
+    rather than as a sleeve.
+
+    Cut out means the background is transparent and the plastic is black. The app
+    runs with the display inverted, so black in the frame buffer is what comes
+    out white on the screen, and a transparent background leaves whatever is
+    behind it alone. Drawing this straight gives a white adapter on black.
+
+    Rendered as frames rather than turned on the device. The arms are curves, the
+    screen has no antialiasing, and rotating a 140 pixel 1-bit image at run time
+    lands them wherever the rasteriser decides. Turning the artwork at full
+    resolution and scaling down afterward is what keeps them smooth, which is the
+    same reason the launcher animation is built this way.
+
+    The adapter reaches 937 pixels from the centre of a mask 940 across, so it
+    fits a rotation with three pixels to spare. The inset here is what turns
+    three pixels of theoretical clearance into enough that antialiasing cannot
+    shave a corner.
+    """
+    columns = SPIN_COLUMNS
+    rows = SPIN_FRAME_COUNT // SPIN_COLUMNS
+    cell = SPIN_FRAME_SIZE
+    inner = cell - SPIN_INSET * 2
+
+    sheet = Image.new("RGBA", (cell * columns, cell * rows), (0, 0, 0, 0))
+
+    # Negative angles because PIL rotates counter clockwise for positive ones,
+    # and a record turns clockwise.
+    degrees_per_frame = 120 / SPIN_FRAME_COUNT
+    for frame_number in range(SPIN_FRAME_COUNT):
+        # to_one_bit already cuts the paper away and leaves the ink, which is
+        # exactly what a spinner wants, so this borrows that rather than working
+        # out its own alpha and getting the sense of it backwards.
+        frame = to_one_bit(
+            render_adapter(mask, inner, -frame_number * degrees_per_frame))
+
+        sheet.paste(
+            frame,
+            ((frame_number % columns) * cell + SPIN_INSET,
+             (frame_number // columns) * cell + SPIN_INSET),
+        )
+
+    return sheet
 
 
 def build_icon(mask, rotation_degrees=0):
@@ -472,6 +535,13 @@ def main():
         build_cover_mark(mask, size).save(COVER_MARK_FOLDER / f"adapter-{size}.png")
     print(f"wrote cover marks to {COVER_MARK_FOLDER}")
     print(f"  " + ", ".join(f"adapter-{size}.png" for size in COVER_MARK_SIZES))
+
+    # The name has to carry the cell size. That is how the Playdate knows how to
+    # cut an image table up, and it is read from the filename rather than from
+    # anything in the file.
+    spin_name = f"adapter-spin-table-{SPIN_FRAME_SIZE}-{SPIN_FRAME_SIZE}.png"
+    build_spin_table(mask).save(COVER_MARK_FOLDER / spin_name)
+    print(f"  {spin_name}, {SPIN_FRAME_COUNT} frames")
 
     DOCS_FOLDER.mkdir(parents=True, exist_ok=True)
     build_readme_logo(mask, "black").save(DOCS_FOLDER / "logo-light.png")

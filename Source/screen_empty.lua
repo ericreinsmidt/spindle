@@ -26,6 +26,24 @@ local graphics <const> = playdate.graphics
 -- turns artwork into noise.
 local ADAPTER_SIZE <const> = 140
 local ADAPTER_TOP <const> = 2
+local ADAPTER_LEFT <const> = (400 - ADAPTER_SIZE) // 2
+
+-- The adapter turns, and the crank turns it.
+--
+-- The crank is the whole interaction model of this app and a new install has
+-- nothing else to demonstrate it on, so the first screen anybody sees is also
+-- the one that teaches it. It costs one image blit a frame.
+--
+-- Sixty frames over the 120 degrees the shape repeats in, so two degrees each.
+local SPIN_FRAME_COUNT <const> = 60
+local SPIN_DEGREES_PER_FRAME <const> = 120 / SPIN_FRAME_COUNT
+
+-- What it does when nobody is touching it. Slow enough to read as idling rather
+-- than as playing something.
+local IDLE_DEGREES_PER_SECOND <const> = 24
+local FRAMES_PER_SECOND <const> = 30
+
+local spinFrames <const> = graphics.imagetable.new("adapter-spin")
 
 local HEADING_TOP <const> = 146
 local BODY_TOP <const> = 176
@@ -54,10 +72,22 @@ end
 
 
 function ScreenEmpty.enter()
+    ScreenEmpty.angleInDegrees = 0
 end
 
 
 function ScreenEmpty.update()
+    -- The crank takes over from the idle turn while it is moving, rather than
+    -- adding to it. Adding would mean the adapter never quite stops when you
+    -- hold the crank still, which reads as the crank not being connected to it.
+    local crankDelta = playdate.getCrankChange()
+    if crankDelta ~= 0 then
+        ScreenEmpty.angleInDegrees = ScreenEmpty.angleInDegrees + crankDelta
+    else
+        ScreenEmpty.angleInDegrees = ScreenEmpty.angleInDegrees
+            + IDLE_DEGREES_PER_SECOND / FRAMES_PER_SECOND
+    end
+
     -- Nothing to go to. There is no library, so every other screen would be
     -- empty as well, and a button that appears to do nothing is worse than one
     -- that plainly does nothing.
@@ -79,8 +109,17 @@ function ScreenEmpty.draw()
         drawCentered(line, BODY_TOP + (lineNumber - 1) * BODY_LINE_HEIGHT)
     end
 
-    -- Drawn the way a cover is drawn, flip and all, so it reads as a blank
-    -- sleeve sitting where a record would be rather than as an icon.
-    Artwork.drawCoverMark(
-        (400 - ADAPTER_SIZE) // 2, ADAPTER_TOP, ADAPTER_SIZE)
+    -- The bare shape with nothing behind it, so it reads as a record rather
+    -- than as a sleeve. The frames are cut out, meaning black plastic on
+    -- nothing, and black is what the inverted display turns white.
+    --
+    -- Lua's modulo takes the sign of its divisor, so cranking backward past zero
+    -- lands on the last frame rather than on a negative index.
+    local frameNumber = math.floor(
+        ScreenEmpty.angleInDegrees / SPIN_DEGREES_PER_FRAME) % SPIN_FRAME_COUNT
+
+    -- Set explicitly, because artwork.lua draws covers inverted and whichever
+    -- screen ran last leaves its own mode selected.
+    graphics.setImageDrawMode(graphics.kDrawModeCopy)
+    spinFrames:getImage(frameNumber + 1):draw(ADAPTER_LEFT, ADAPTER_TOP)
 end

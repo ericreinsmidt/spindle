@@ -26,10 +26,42 @@ local graphics <const> = playdate.graphics
 -- Shown as Triforce, because rule 90 draws a Sierpinski triangle and that is
 -- what most people have actually seen one in.
 
--- How far the crank has to turn to shear the pattern by one pixel. A full
--- revolution is 360 degrees, so this works out to twelve pixels of shear per
--- turn.
-local CRANK_DEGREES_PER_SHEAR_PIXEL <const> = 30
+-- The crank is a rule dial.
+--
+-- It used to shear the pattern sideways, which was a poor use of it: the shear
+-- was driven by how fast the crank was moving rather than where it had got to,
+-- so it only existed on frames where the crank was actually turning, and the
+-- leaned rows scrolled off the top about a second later. The whole effect
+-- erased itself no matter how far you turned.
+--
+-- Turning the crank now walks through the rules below instead, reseeding on each
+-- one, so you can go looking for a pattern rather than waiting for the music to
+-- hand you one.
+--
+-- Ordered so that turning the dial moves through a character rather than
+-- jumping about: the sparse gaskets first, then the solid and nested ones, then
+-- the complicated and the chaotic. Rule 90 is first because it is the one the
+-- visualizer is named after, and it is where the dial starts.
+--
+-- Every one of these was run from a single seed cell for two screens of rows
+-- before being put on the dial, because most of the 256 elementary rules are
+-- useless here for one of three reasons. Any odd rule turns an all-dead
+-- neighborhood live, so the empty background flips on every row and the screen
+-- strobes. Many die out or settle into a solid block. And several are
+-- indistinguishable from each other given this starting condition: rule 18 was
+-- on the dial until it turned out to draw a gasket identical to rule 90's for
+-- every row that fits on the screen, which would have been a dial position that
+-- appeared to do nothing.
+--
+-- These nine are distinct from one another, none goes blank, and all sit between
+-- 15 and 42 percent ink, which is the range that reads as a pattern rather than
+-- as either an empty screen or a filled one.
+local DIAL_RULES <const> = { 90, 60, 22, 126, 94, 150, 54, 110, 30 }
+
+-- A quarter turn per rule, so one full revolution moves four along and the whole
+-- list is two turns end to end. The dial wraps rather than stopping, so there is
+-- no dead end to crank against.
+local CRANK_DEGREES_PER_RULE <const> = 90
 
 local CellularAutomaton = {
     name = "Triforce",
@@ -46,29 +78,38 @@ local CellularAutomaton = {
     -- twice as fast as it used to and that is the price of the bigger triangles.
     cellSize = 8,
 
-    ruleNumber = 30,
+    ruleNumber = 90,
 }
 
-function CellularAutomaton:reset()
-    self.columnCount = 400 // self.cellSize
-    self.currentRow = {}
-
-    -- Fractions of a pixel of shear left over from previous frames.
-    self.unspentSidewaysShift = 0
-
-    -- Start from a single live cell in the middle, which is the classic
-    -- starting condition and produces the familiar triangular growth.
+-- Start over from a single live cell in the middle, which is the classic
+-- starting condition and produces the familiar triangular growth.
+function CellularAutomaton:seed()
     for column = 1, self.columnCount do
         self.currentRow[column] = 0
     end
     self.currentRow[self.columnCount // 2] = 1
     self.rowsSinceSeed = 0
+end
+
+function CellularAutomaton:reset()
+    self.columnCount = 400 // self.cellSize
+    self.currentRow = {}
+    self:seed()
+
+    -- Where the dial has been turned to, in degrees, and which rule that works
+    -- out to. Both start at rule 90 so the namesake is what you get on arrival.
+    self.dialDegrees = 0
+    self.dialIndex = 1
+    self.ruleNumber = DIAL_RULES[1]
+
+    -- Set once the dial has actually been moved a whole step. Until then the
+    -- music picks the rules, and afterward it stops picking them.
+    self.crankHasTakenOver = false
 
     -- Two images are used so the history can be scrolled by drawing one into
     -- the other at an offset, then swapping them.
     self.historyImage = graphics.image.new(400, 240, graphics.kColorWhite)
     self.scratchImage = graphics.image.new(400, 240, graphics.kColorWhite)
-    self.ruleNumber = 30
 end
 
 -- Apply the rule to one cell given its three neighbors. An elementary rule is
@@ -104,34 +145,53 @@ function CellularAutomaton:draw(context)
 
     local screenIsFull = self.rowsSinceSeed >= (240 // self.cellSize)
     if screenIsFull and context.beat then
-        -- Rule 90 is the one that draws the triangle, so it comes up half the
-        -- time rather than a quarter. The other three are here for variety and
-        -- all produce something worth looking at on their own.
-        local rules = { 90, 90, 30, 110, 150 }
-        self.ruleNumber = rules[math.random(#rules)]
-
-        for column = 1, self.columnCount do
-            self.currentRow[column] = 0
+        -- The beat always starts a fresh run, but it only chooses the rule while
+        -- the dial is untouched. Once the crank has been used, picking a rule
+        -- out of the music would throw away the one just chosen by hand, so the
+        -- beat is left doing the thing that is still wanted: regrowing the
+        -- triangle from its apex in time with the track.
+        if not self.crankHasTakenOver then
+            -- Rule 90 is the one that draws the triangle, so it comes up half
+            -- the time rather than a quarter. The other three are here for
+            -- variety and all produce something worth looking at on their own.
+            local rules = { 90, 90, 30, 110, 150 }
+            self.ruleNumber = rules[math.random(#rules)]
         end
-        self.currentRow[self.columnCount // 2] = 1
-        self.rowsSinceSeed = 0
+
+        self:seed()
     end
 
-    -- The crank tilts the scroll sideways, which shears the whole pattern.
+    -- The rule dial.
     --
-    -- The shear has to be a whole number of pixels, because it is an image blit
-    -- offset, and the movement available in one frame is usually a fraction of
-    -- one. So the fraction is carried over rather than discarded, which is what
-    -- makes a slow steady turn produce a slow steady shear.
+    -- The dial reads accumulated crank position rather than this frame's
+    -- movement, so where you have turned it to is what decides the rule and it
+    -- stays there when you let go. Degrees are kept unrounded and the step is
+    -- taken from the total, which means a slow turn crosses each boundary once
+    -- rather than a fraction of a step being lost every frame.
     --
-    -- This was previously math.floor of the raw movement, which was broken in
-    -- both directions at once. Thirty degrees inside a single frame is two and a
-    -- half revolutions per second, so cranking forward at any sane speed did
-    -- nothing at all. Meanwhile math.floor rounds toward negative infinity, so
-    -- the smallest backward movement floored to minus one and sheared a full
-    -- pixel every frame. Cranking one way did nothing and the other way ran away.
-    self.unspentSidewaysShift =
-        (self.unspentSidewaysShift or 0) + context.crankDelta / CRANK_DEGREES_PER_SHEAR_PIXEL
+    -- The modulo wraps the dial, and Lua's modulo takes the sign of its divisor,
+    -- so cranking backward past the first rule lands on the last one rather than
+    -- on a negative index.
+    self.dialDegrees = self.dialDegrees + context.crankDelta
+
+    local dialIndex =
+        math.floor(self.dialDegrees / CRANK_DEGREES_PER_RULE) % #DIAL_RULES + 1
+
+    if dialIndex ~= self.dialIndex then
+        self.dialIndex = dialIndex
+        self.ruleNumber = DIAL_RULES[dialIndex]
+
+        -- A whole step of the dial is what counts as taking over, not any
+        -- movement at all, so brushing the crank does not silently stop the
+        -- music choosing rules.
+        self.crankHasTakenOver = true
+
+        -- Start the new rule from a single cell. Changing rule part way through
+        -- a run replaces whatever was being drawn with something else, which is
+        -- what made the triangle so rarely visible when the beat was doing the
+        -- changing. Reseeding means the dial always shows a rule from its apex.
+        self:seed()
+    end
 
     -- Compute the next row from the current one.
     local nextRow = {}
@@ -171,19 +231,9 @@ function CellularAutomaton:draw(context)
     self.currentRow = nextRow
 
     -- Scroll the history up by one cell and draw the new row at the bottom.
-    --
-    -- Truncate toward zero, so both directions behave the same way.
-    local sidewaysShift = 0
-    if self.unspentSidewaysShift >= 1 then
-        sidewaysShift = math.floor(self.unspentSidewaysShift)
-    elseif self.unspentSidewaysShift <= -1 then
-        sidewaysShift = math.ceil(self.unspentSidewaysShift)
-    end
-    self.unspentSidewaysShift = self.unspentSidewaysShift - sidewaysShift
-
     graphics.pushContext(self.scratchImage)
         graphics.clear(graphics.kColorWhite)
-        self.historyImage:draw(sidewaysShift, -self.cellSize)
+        self.historyImage:draw(0, -self.cellSize)
 
         -- Draw the new row as runs of consecutive live cells rather than one
         -- rectangle per cell, which cuts the number of draw calls by roughly

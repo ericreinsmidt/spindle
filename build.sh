@@ -28,6 +28,17 @@ for FONT in Roobert-11-Bold Roobert-20-Medium; do
 	done
 done
 
+# The app carries its own instructions and its own conversion tool, so that a
+# device with no music on it can explain itself without needing a website. pdc
+# copies anything it does not recognize straight into the bundle, so these ride
+# along untouched.
+#
+# ingest.py is copied in from tools/ rather than kept here, for the same reason
+# the fonts are: one copy in the repository, no chance of the shipped tool and
+# the real one drifting apart.
+mkdir -p Source/docs
+cp tools/ingest.py Source/docs/ingest.py
+
 echo "building $OUT with SDK $(cat "$SDK/VERSION.txt")"
 "$PDC" Source "$OUT"
 echo "ok: $OUT"

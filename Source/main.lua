@@ -27,6 +27,7 @@ import "screen_library"
 import "screen_nowplaying"
 import "screen_visualizer"
 import "screen_pocket"
+import "docs"
 import "screen_empty"
 
 local graphics <const> = playdate.graphics
@@ -137,6 +138,12 @@ elseif Library.isMissing then
     -- A new install, which is not a failure. The empty screen explains how to
     -- get music on here, and it is a screen rather than a message because it is
     -- the only thing a first time user or a reviewer will see until they do.
+    --
+    -- The instructions and the conversion tool are put into the data folder at
+    -- the same time, so that plugging the device in lands you on the folder the
+    -- library has to go in with the directions for filling it already there.
+    Docs.install()
+
     currentScreenName = "empty"
     ScreenEmpty.enter()
 else

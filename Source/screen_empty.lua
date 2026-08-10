@@ -52,15 +52,20 @@ local BODY_LINE_HEIGHT <const> = 18
 -- Short lines, and short here means under about 39 characters, which is what a
 -- 400 pixel screen holds at roughly 9.6 pixels a character.
 --
--- This points at the documentation rather than reciting a step. It used to name
--- the folder the library is copied into, which is one step out of five and is
--- worse than naming none: somebody who has not converted anything yet cannot use
--- it, and somebody who has does not need it. A URL is the one thing that leads
--- to all of it, and it is short enough to read off the screen and type.
+-- This names the folder, having spent a draft arguing against naming it.
+--
+-- The objection was that the folder is one step out of five and useless on its
+-- own. That stopped being true once the app started putting its own README and
+-- its own conversion tool in that folder. It is no longer one step, it is where
+-- all of them are written down, and the person reading this is about to plug the
+-- device into a computer anyway.
+--
+-- A URL was the alternative and is now the fallback, in the README, for anyone
+-- who would rather read it on the web.
 local INSTRUCTIONS <const> = {
-    "It has to be converted on a computer.",
-    "Steps and tools at",
-    "github.com/ericreinsmidt/spindle",
+    "Connect to a computer and open",
+    "Data/com.reinsmidt.spindle/",
+    "The README there explains the rest.",
 }
 
 

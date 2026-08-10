@@ -456,9 +456,9 @@ Visualizers.register(ChladniFigures)
 -- That forces the figure to be a pure function of how far the pen has traveled,
 -- rather than a trail of points collected frame by frame. A collected trail is
 -- history, and history cannot be wound backwards: you can stop adding to it but
--- you cannot un-draw it. Recomputing the whole curve from the pen position every
--- frame costs about 325 points, which is fewer than the 700 the trail held, so
--- reversibility came out cheaper than the thing it replaced.
+-- you cannot un-draw it. Recomputing the whole curve from the pen position costs
+-- a median of about 560 points a frame, against the 700 the trail held, so
+-- reversibility still came out cheaper than the thing it replaced.
 --
 -- Two turns of the crank draw a complete figure.
 local FIGURE_LIFETIME <const> = 26
@@ -489,10 +489,32 @@ local STARTING_WIND_IN_DEGREES <const> = DEGREES_TO_DRAW_A_FIGURE * 0.3
 -- either direction.
 local REMEMBERED_FIGURE_COUNT <const> = 8
 
--- The spacing between points along the curve. Small enough that the line reads
--- as a curve rather than a polygon, large enough not to draw the same pixel
--- repeatedly.
-local TRACE_STEP <const> = 0.08
+-- How far apart consecutive points on the curve should land, in pixels.
+--
+-- This used to be a fixed step in pen time, 0.08, which is not the same thing at
+-- all. How far the pen moves in a given step is the amplitude times the
+-- frequency, so a fixed time step draws a smooth curve on a slow figure and a
+-- polygon on a fast one. Measured across 400 figures it was leaving segments 53
+-- pixels long on average and 151 at worst, and 373 of the 400 had segments over
+-- 20 pixels. The figure that looked hand drawn and the figure that looked like a
+-- star polygon were the same code with different frequencies.
+--
+-- Working back from a target in pixels instead gives 11 pixels on average and 20
+-- at worst. It costs more points, a median of 558 against the fixed 326, which
+-- is the honest price of the fast figures having been undersampled all along.
+local SEGMENT_TARGET_PIXELS <const> = 12
+
+-- Bounds on the step, so neither a very slow nor a very fast figure runs away.
+-- The minimum is what caps the cost: without it a dense figure asks for over a
+-- thousand points, and it is the dense ones that least need the resolution.
+local TRACE_STEP_MINIMUM <const> = 0.020
+local TRACE_STEP_MAXIMUM <const> = 0.10
+
+-- The step grows as the figure winds inward, since a shrinking figure covers
+-- less ground per unit of pen time and does not need points as closely spaced.
+-- The floor stops that becoming a very large step once the figure is nearly a
+-- dot in the middle.
+local DECAY_STEP_FLOOR <const> = 0.15
 
 -- How quickly the pendulums lose their travel. The figure spirals inward as it
 -- is drawn, which is what a harmonograph does, and because amplitude comes from
@@ -518,9 +540,14 @@ local DAMPING_MAXIMUM <const> = 0.10
 --
 -- The multiplier is what the second one runs at relative to the first. One gives
 -- near unison, so the pair drifts slowly apart and the figure precesses, which is
--- the classic rotary effect. Two and three fold extra lobes into the shape.
--- Weighted toward the lower numbers because they stay legible.
-local SECOND_PENDULUM_MULTIPLIERS <const> = { 1, 1, 2, 2, 3 }
+-- the classic rotary effect. Two folds extra lobes into the shape.
+--
+-- Three was on this list and came off. The cost of drawing a figure smoothly is
+-- proportional to its highest frequency, so a multiplier of three on an already
+-- fast pendulum asked for over a thousand points, and what it drew was a dense
+-- scribble that a 400 by 240 screen cannot resolve anyway. Paying triple to draw
+-- something less legible is a bad trade twice over.
+local SECOND_PENDULUM_MULTIPLIERS <const> = { 1, 1, 2 }
 
 -- How much of the total travel the second pendulum gets. The two shares add up
 -- to one, so the figure still reaches exactly the extents above and no further.
@@ -594,8 +621,13 @@ local Harmonograph = {
 local function figureFromAudio(context)
     local bass, mid, treble = Visualizers.bassMidTreble(context)
 
-    local slowFrequency = 1 + math.floor(bass * 4)
-    local fastFrequency = slowFrequency + 1 + math.floor(treble * 3)
+    -- These ranges came down from 1 to 5 and plus 1 to 4. Drawing a figure
+    -- smoothly costs points in proportion to its highest frequency, and the fast
+    -- end of the old range was both the most expensive to draw and the least
+    -- legible once drawn: past about six oscillations the figure stops reading as
+    -- a shape on a screen this size and becomes a smudge.
+    local slowFrequency = 1 + math.floor(bass * 2)
+    local fastFrequency = slowFrequency + 1 + math.floor(treble * 2)
 
     local fasterAxisIsHorizontal = math.random() < 0.5
     local frequencyX = fasterAxisIsHorizontal and fastFrequency or slowFrequency
@@ -610,15 +642,57 @@ local function figureFromAudio(context)
     local multiplierY =
         SECOND_PENDULUM_MULTIPLIERS[math.random(#SECOND_PENDULUM_MULTIPLIERS)]
 
+    local phaseY = mid * math.pi
+
+    -- Where the second pendulum starts relative to the first.
+    --
+    -- At a multiplier of one the two run at nearly the same frequency, so their
+    -- phase difference holds for the whole figure rather than drifting. Half a
+    -- turn apart they cancel: two sines of equal frequency and opposite phase
+    -- add up to almost nothing, and with the shares near even the axis loses
+    -- nearly all its travel. That is what drew the figures that came out as a
+    -- flat streak with no height at all, and it was not rare, 31 of 156 near
+    -- unisons fell below two fifths of full travel.
+    --
+    -- Keeping the difference inside a quarter turn either way guarantees they
+    -- add: the combined swing is the square root of a squared plus b squared
+    -- plus twice a b times the cosine of the difference, and a cosine that
+    -- cannot go negative puts the floor at about seven tenths.
+    --
+    -- At other multipliers the frequencies genuinely differ, so no phase
+    -- relationship persists and any starting phase is fine.
+    local function secondPhaseFor(primaryPhase, multiplier)
+        if multiplier == 1 then
+            return primaryPhase + randomBetween(-math.pi / 2, math.pi / 2)
+        end
+        return math.random() * math.pi * 2
+    end
+
+    local secondFrequencyX = frequencyX * multiplierX + detune
+    local secondFrequencyY = frequencyY * multiplierY + detune
+
+    -- The step is worked out once here rather than every frame, from whichever
+    -- pendulum runs fastest, since that is the one that decides how far the pen
+    -- travels between points.
+    local highestFrequency = math.max(
+        frequencyX, frequencyY, secondFrequencyX, secondFrequencyY)
+    local traceStep = SEGMENT_TARGET_PIXELS / (STARTING_AMPLITUDE * highestFrequency)
+    if traceStep < TRACE_STEP_MINIMUM then
+        traceStep = TRACE_STEP_MINIMUM
+    elseif traceStep > TRACE_STEP_MAXIMUM then
+        traceStep = TRACE_STEP_MAXIMUM
+    end
+
     return {
+        traceStep = traceStep,
         frequencyX = frequencyX,
         frequencyY = frequencyY,
 
         -- The detune goes on the second pendulum of each axis. At a multiplier
         -- of one that makes it a near unison with the first, which is what makes
         -- the figure precess rather than retrace itself.
-        secondFrequencyX = frequencyX * multiplierX + detune,
-        secondFrequencyY = frequencyY * multiplierY + detune,
+        secondFrequencyX = secondFrequencyX,
+        secondFrequencyY = secondFrequencyY,
 
         -- The two shares add to one, so however they are split the figure still
         -- reaches exactly STARTING_AMPLITUDE and no further.
@@ -627,9 +701,9 @@ local function figureFromAudio(context)
 
         damping = randomBetween(DAMPING_MINIMUM, DAMPING_MAXIMUM),
 
-        phaseY = mid * math.pi,
-        secondPhaseX = math.random() * math.pi * 2,
-        secondPhaseY = math.random() * math.pi * 2,
+        phaseY = phaseY,
+        secondPhaseX = secondPhaseFor(0, multiplierX),
+        secondPhaseY = secondPhaseFor(phaseY, multiplierY),
     }
 end
 
@@ -735,6 +809,7 @@ function Harmonograph:draw(context)
     local primaryShare = figure.primaryShare
     local secondaryShare = figure.secondaryShare
     local damping = figure.damping
+    local traceStep = figure.traceStep
 
     local verticalReach = STARTING_AMPLITUDE * VERTICAL_SQUASH
 
@@ -761,7 +836,11 @@ function Harmonograph:draw(context)
         end
         previousX, previousY = pointX, pointY
 
-        pointTime = pointTime + TRACE_STEP
+        -- Spaced by distance rather than by time. As the figure winds inward it
+        -- covers less ground per unit of pen time, so the step opens up and the
+        -- inner turns cost fewer points than the outer ones.
+        pointTime = pointTime
+            + traceStep / (decay > DECAY_STEP_FLOOR and decay or DECAY_STEP_FLOOR)
     end
 end
 

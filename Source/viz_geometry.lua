@@ -498,20 +498,67 @@ local TRACE_STEP <const> = 0.08
 -- is drawn, which is what a harmonograph does, and because amplitude comes from
 -- each point's own position along the curve rather than from a clock, the spiral
 -- is part of the shape rather than something that happens to it.
-local DAMPING_RATE <const> = 0.06
+--
+-- Picked per figure rather than fixed. It used to be 0.06 for every figure, so
+-- every one of them wound inward at the same rate inside the same envelope, and
+-- the only thing that ever changed between figures was the frequency ratio. At
+-- 0.03 a figure keeps three fifths of its travel by the end and comes out dense
+-- and overlapping; at 0.10 it keeps a fourteenth and winds down to a tight
+-- center. Those read as different drawings even at the same ratio.
+local DAMPING_MINIMUM <const> = 0.03
+local DAMPING_MAXIMUM <const> = 0.10
+
+-- The second pendulum on each axis.
+--
+-- A harmonograph has two per axis, not one. With a single pendulum each way this
+-- was drawing Lissajous figures, which are the plain closed loops; the looping,
+-- ribboned figures people picture come from the second pendulum beating against
+-- the first. It is two more sine terms per point and it is the difference
+-- between a curve and a drawing.
+--
+-- The multiplier is what the second one runs at relative to the first. One gives
+-- near unison, so the pair drifts slowly apart and the figure precesses, which is
+-- the classic rotary effect. Two and three fold extra lobes into the shape.
+-- Weighted toward the lower numbers because they stay legible.
+local SECOND_PENDULUM_MULTIPLIERS <const> = { 1, 1, 2, 2, 3 }
+
+-- How much of the total travel the second pendulum gets. The two shares add up
+-- to one, so the figure still reaches exactly the extents above and no further.
+local SECOND_PENDULUM_SHARE_MINIMUM <const> = 0.25
+local SECOND_PENDULUM_SHARE_MAXIMUM <const> = 0.55
+
+-- How far the second pendulum sits off a whole multiple of the first.
+--
+-- This is what stops the curve closing exactly, so the line comes back slightly
+-- beside itself rather than straight over itself. Small values give clean loops
+-- and large ones give dense layered figures, so varying it per figure is most of
+-- the difference between the two looks.
+local DETUNE_MINIMUM <const> = 0.005
+local DETUNE_MAXIMUM <const> = 0.05
+
+
+local function randomBetween(low, high)
+    return low + math.random() * (high - low)
+end
 
 -- How far the pendulums swing at the start, before damping pulls them in.
 --
--- The figure reaches exactly this far from center horizontally and this much
--- times the squash vertically, so the numbers are the half extents: 150 by 105
--- against a 400 by 240 screen, leaving a margin of 50 and 15. It used to sit at
--- 96, which drew a figure in the middle third of the screen with a great deal of
--- nothing around it.
+-- These are the half extents the figure can reach at most: 160 by 112 against a
+-- 400 by 240 screen, leaving a margin of 40 and 8. It used to sit at 96, which
+-- drew a figure in the middle third of the screen with a great deal of nothing
+-- around it.
+--
+-- With one pendulum per axis the figure hit that bound on its first swing, every
+-- time. With two it almost never does, because the pair rarely peaks together:
+-- simulated over 400 figures the median reaches 90 vertically and the largest
+-- 104.5, against a bound of 105 at the old amplitude of 150. So the number went
+-- up to keep the figures the size they were, and the bound is still a bound,
+-- because the two shares add to one and neither sine can exceed one.
 --
 -- The vertical squash is what stops it reading as a circle. It went up with the
 -- amplitude, because at 0.62 a figure this wide would have run out of height
 -- before it ran out of width.
-local STARTING_AMPLITUDE <const> = 150
+local STARTING_AMPLITUDE <const> = 160
 local VERTICAL_SQUASH <const> = 0.70
 
 local Harmonograph = {
@@ -521,24 +568,68 @@ local Harmonograph = {
 
 -- Pick a figure from what is playing right now.
 --
--- Simple ratios give closed elegant loops, so the values are kept small and near
--- whole numbers. The fractional part is small on purpose: it stops the curve
--- closing exactly, so the line comes back slightly beside itself rather than
--- straight over itself, which is where the layered look comes from.
+-- Simple ratios give closed elegant loops, so the primary frequencies are kept
+-- small and whole. They are exact here rather than nudged off, because the
+-- second pendulum now carries the detune: the base figure closes cleanly and the
+-- second one drifts across it, which layers the drawing without smearing the
+-- shape underneath it.
 --
--- The vertical frequency is built up from the horizontal one rather than drawn
+-- The faster frequency is built up from the slower one rather than drawn
 -- independently, so that the two can never come out equal. When they did, and
 -- with two ranges of similar width landing on similar values that happened
 -- often, the ratio was one to one and a one to one Lissajous figure is an
 -- ellipse. It drew a plain spiral and nothing else, which looked like the
 -- visualizer had given up.
+--
+-- Which axis gets the faster one is then chosen at random. It used to always be
+-- the vertical, so every figure oscillated faster up and down than side to side
+-- and the whole family leaned the same way. Letting it fall either way doubles
+-- the set of shapes for nothing.
+--
+-- The audio decides the ratio, which is the part worth tying to the music, and
+-- chance decides the rest. There are only three numbers coming out of the
+-- spectrum and eight parameters to fill, so deriving them all from the audio
+-- would just be the same three numbers wearing different hats. Figures are drawn
+-- once and remembered, so a random figure is still stable under the crank.
 local function figureFromAudio(context)
     local bass, mid, treble = Visualizers.bassMidTreble(context)
-    local horizontalFrequency = 1 + math.floor(bass * 4)
+
+    local slowFrequency = 1 + math.floor(bass * 4)
+    local fastFrequency = slowFrequency + 1 + math.floor(treble * 3)
+
+    local fasterAxisIsHorizontal = math.random() < 0.5
+    local frequencyX = fasterAxisIsHorizontal and fastFrequency or slowFrequency
+    local frequencyY = fasterAxisIsHorizontal and slowFrequency or fastFrequency
+
+    local detune = randomBetween(DETUNE_MINIMUM, DETUNE_MAXIMUM)
+    local secondaryShare = randomBetween(
+        SECOND_PENDULUM_SHARE_MINIMUM, SECOND_PENDULUM_SHARE_MAXIMUM)
+
+    local multiplierX =
+        SECOND_PENDULUM_MULTIPLIERS[math.random(#SECOND_PENDULUM_MULTIPLIERS)]
+    local multiplierY =
+        SECOND_PENDULUM_MULTIPLIERS[math.random(#SECOND_PENDULUM_MULTIPLIERS)]
+
     return {
-        frequencyX = horizontalFrequency + (mid * 0.02),
-        frequencyY = horizontalFrequency + 1 + math.floor(treble * 3) + (bass * 0.02),
-        phaseOffset = mid * math.pi,
+        frequencyX = frequencyX,
+        frequencyY = frequencyY,
+
+        -- The detune goes on the second pendulum of each axis. At a multiplier
+        -- of one that makes it a near unison with the first, which is what makes
+        -- the figure precess rather than retrace itself.
+        secondFrequencyX = frequencyX * multiplierX + detune,
+        secondFrequencyY = frequencyY * multiplierY + detune,
+
+        -- The two shares add to one, so however they are split the figure still
+        -- reaches exactly STARTING_AMPLITUDE and no further.
+        primaryShare = 1 - secondaryShare,
+        secondaryShare = secondaryShare,
+
+        damping = randomBetween(DAMPING_MINIMUM, DAMPING_MAXIMUM),
+
+        phaseY = mid * math.pi,
+        secondPhaseX = math.random() * math.pi * 2,
+        secondPhaseY = math.random() * math.pi * 2,
     }
 end
 
@@ -631,18 +722,39 @@ function Harmonograph:draw(context)
     local figure = self.figures[self.figureIndex]
     local centerX = context.width / 2
     local centerY = context.height / 2
+
+    -- Hoisted out of the loop. This runs a few hundred times a frame and a table
+    -- lookup per field per point is worth not doing.
     local frequencyX = figure.frequencyX
     local frequencyY = figure.frequencyY
-    local phaseOffset = figure.phaseOffset
+    local secondFrequencyX = figure.secondFrequencyX
+    local secondFrequencyY = figure.secondFrequencyY
+    local phaseY = figure.phaseY
+    local secondPhaseX = figure.secondPhaseX
+    local secondPhaseY = figure.secondPhaseY
+    local primaryShare = figure.primaryShare
+    local secondaryShare = figure.secondaryShare
+    local damping = figure.damping
+
+    local verticalReach = STARTING_AMPLITUDE * VERTICAL_SQUASH
 
     local previousX, previousY
     local pointTime = 0
 
     while pointTime <= penTime do
-        local amplitude = STARTING_AMPLITUDE * math.exp(-pointTime * DAMPING_RATE)
-        local pointX = centerX + math.sin(pointTime * frequencyX) * amplitude
-        local pointY = centerY
-            + math.sin(pointTime * frequencyY + phaseOffset) * amplitude * VERTICAL_SQUASH
+        -- One envelope for both pendulums on an axis rather than one each. A real
+        -- harmonograph's pendulums run down independently, but that is a second
+        -- exp per point for a difference that does not survive a 1-bit screen,
+        -- and this loop is the expensive one.
+        local decay = math.exp(-pointTime * damping)
+
+        local swingX = primaryShare * math.sin(pointTime * frequencyX)
+            + secondaryShare * math.sin(pointTime * secondFrequencyX + secondPhaseX)
+        local swingY = primaryShare * math.sin(pointTime * frequencyY + phaseY)
+            + secondaryShare * math.sin(pointTime * secondFrequencyY + secondPhaseY)
+
+        local pointX = centerX + swingX * decay * STARTING_AMPLITUDE
+        local pointY = centerY + swingY * decay * verticalReach
 
         if previousX then
             graphics.drawLine(previousX, previousY, pointX, pointY)

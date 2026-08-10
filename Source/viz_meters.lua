@@ -78,32 +78,38 @@ Visualizers.register(SpectrumBars)
 -- cut off by the edge, and the ring in particular read as two arcs at the sides
 -- rather than as a ring at all.
 --
--- The longest spoke now reaches 112 and the ring sits at 116, just outside it,
--- which keeps the ring whole and still lets the spokes nearly touch it on a
--- loud passage.
+-- The spokes are now capped at the ring instead, so the loudest passages flatten
+-- against it rather than pushing through it or off the screen.
 local SPOKE_REACH <const> = 74
 
 -- The figure is drawn as an ellipse rather than a circle, stretched sideways to
 -- the shape of the screen.
 --
--- A circle here can only ever be as big as the screen is tall, so it reached 112
--- pixels of the 120 available vertically while leaving 88 pixels of nothing down
--- each side. It filled the height and still read as small, because what you
--- notice is the empty width.
+-- A circle here can only ever be as big as the screen is tall, so it filled the
+-- height and still read as small, because what you notice is the empty width
+-- down each side. Going back to a circle now would cost either that width or the
+-- containment below: a horizontal spoke can only be kept inside a circle by
+-- undoing this stretch on exactly the spokes it does the most work for.
 --
--- 1.55 is a little under the screen's own 400 by 240, which is 1.67. Going all
--- the way looks stretched; stopping short of it fills the space while still
--- reading as round.
-local HORIZONTAL_STRETCH <const> = 1.55
+-- The stretch has to be a little more than the screen's own 400 by 240, which is
+-- 1.67, not less. At 1.55 the ellipse was narrower in proportion than the screen,
+-- so the height was what ran out first: it stood 236 tall in 240, two pixels of
+-- air top and bottom, against seventeen down each side. That reads as clipped.
+-- At 1.74 the figure is 383 by 220 and has about nine pixels all the way around.
+local HORIZONTAL_STRETCH <const> = 1.74
 -- The ring that flashes on a beat. An ellipse rather than a circle, stretched
 -- by exactly the same amount as the spokes, so the figure it surrounds stays
 -- inside it.
 --
+-- Both the spoke cap and the ring are written in unstretched units and both get
+-- multiplied by the same stretch on the way out, which is what makes the cap
+-- exact at every angle rather than only on the vertical.
+--
 -- It was a circle at radius 116. Once the spokes were stretched sideways they
 -- reached nearly 200 pixels, so on every beat a circle appeared with most of the
--- figure sticking out through it. Two shapes disagreeing about the same centre
+-- figure sticking out through it. Two shapes disagreeing about the same center
 -- reads as a mistake, which it was.
-local BEAT_RING_RADIUS <const> = 118
+local BEAT_RING_RADIUS <const> = 110
 
 local RadialSpectrum = {
     name = "Maigasa",

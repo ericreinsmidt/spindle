@@ -27,6 +27,7 @@ import "screen_library"
 import "screen_nowplaying"
 import "screen_visualizer"
 import "screen_pocket"
+import "screen_empty"
 
 local graphics <const> = playdate.graphics
 
@@ -38,12 +39,17 @@ local screensByName = {
     nowplaying = ScreenNowPlaying,
     visualizer = ScreenVisualizer,
     pocket = ScreenPocket,
+    empty = ScreenEmpty,
 }
 
 local currentScreenName = "library"
 
--- Set when the library could not be loaded, so the app can explain what to do
--- rather than showing an empty list.
+-- Set when a library was present but could not be loaded, so the app can explain
+-- what went wrong rather than showing an empty list.
+--
+-- Having no library at all is a separate thing and is not this. That is a new
+-- install, it is what everybody sees the first time, and it goes to a screen of
+-- its own rather than through here.
 local startupFailed = false
 
 
@@ -59,8 +65,8 @@ local function switchToScreen(screenName)
 end
 
 
--- Explain a missing or broken library, since an empty album list would leave
--- the user guessing.
+-- Explain a broken library, since an empty album list would leave the user
+-- guessing. A library that is simply absent does not come here.
 local function drawStartupError()
     graphics.clear()
 
@@ -127,6 +133,12 @@ if Library.load() then
     if Session.restore() then
         switchToScreen("nowplaying")
     end
+elseif Library.isMissing then
+    -- A new install, which is not a failure. The empty screen explains how to
+    -- get music on here, and it is a screen rather than a message because it is
+    -- the only thing a first time user or a reviewer will see until they do.
+    currentScreenName = "empty"
+    ScreenEmpty.enter()
 else
     startupFailed = true
 end

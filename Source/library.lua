@@ -36,6 +36,11 @@ Library.trackCount = 0
 -- empty list and leaving the user to guess.
 Library.loadError = nil
 
+-- True when there is no library file at all, as opposed to one that is present
+-- and broken. A fresh install is the first of those and is not a fault, so it
+-- gets its own screen instead of an error message.
+Library.isMissing = false
+
 
 -- Sort albums the way a record shelf is usually organized, by artist and then
 -- by album title, rather than by whatever order the folders happened to be
@@ -117,10 +122,15 @@ function Library.load()
     Library.trackCount = 0
     Library.loadError = nil
 
-    if not playdate.file.exists(LIBRARY_INDEX_NAME .. ".json") then
-        Library.loadError =
-            "No library found.\n\nRun tools/ingest.py and copy the result into\n" ..
-            "/Data/com.reinsmidt.spindle/"
+    -- No library at all is not a fault, it is a brand new install, and it is what
+    -- every first run and every reviewer sees. It gets its own screen rather than
+    -- an error message, so this only has to say which of the two happened.
+    --
+    -- Everything below this point is a real fault: a file that will not parse, or
+    -- one that parses to nothing usable. Those keep their technical wording,
+    -- because somebody has to be able to work out what went wrong.
+    Library.isMissing = not playdate.file.exists(LIBRARY_INDEX_NAME .. ".json")
+    if Library.isMissing then
         return false
     end
 

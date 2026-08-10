@@ -25,7 +25,7 @@ local graphics <const> = playdate.graphics
 -- large one to some other size would be resampling a 1-bit image, which is what
 -- turns artwork into noise.
 local ADAPTER_SIZE <const> = 140
-local ADAPTER_TOP <const> = 2
+local ADAPTER_TOP <const> = 20
 local ADAPTER_LEFT <const> = (400 - ADAPTER_SIZE) // 2
 
 -- The adapter turns, and the crank turns it.
@@ -45,27 +45,28 @@ local FRAMES_PER_SECOND <const> = 30
 
 local spinFrames <const> = graphics.imagetable.new("adapter-spin")
 
-local HEADING_TOP <const> = 146
-local BODY_TOP <const> = 176
+-- Set so the adapter, the heading and the one line under it sit as a block in
+-- the middle of the screen. They used to be pushed to the top, which was right
+-- when there were three lines of instructions under them and leaves a hole now
+-- that there is one.
+local HEADING_TOP <const> = 166
+local BODY_TOP <const> = 200
 local BODY_LINE_HEIGHT <const> = 18
 
 -- Short lines, and short here means under about 39 characters, which is what a
 -- 400 pixel screen holds at roughly 9.6 pixels a character.
 --
--- This names the folder, having spent a draft arguing against naming it.
+-- One line, pointing at the one thing that explains all of it.
 --
--- The objection was that the folder is one step out of five and useless on its
--- own. That stopped being true once the app started putting its own README and
--- its own conversion tool in that folder. It is no longer one step, it is where
--- all of them are written down, and the person reading this is about to plug the
--- device into a computer anyway.
+-- Earlier drafts of this tried to be the instructions: what to convert, what
+-- with, where to put it. None of that fits on a 400 pixel screen and none of it
+-- has to, because the app now writes a README into the folder it is naming. This
+-- only has to get somebody to that file.
 --
--- A URL was the alternative and is now the fallback, in the README, for anyone
--- who would rather read it on the web.
+-- The full path is left out on purpose. Data folder is what a person needs to go
+-- looking for; com.reinsmidt.spindle is what they will see when they get there.
 local INSTRUCTIONS <const> = {
-    "Connect to a computer and open",
-    "Data/com.reinsmidt.spindle/",
-    "The README there explains the rest.",
+    "See README in Data folder",
 }
 
 
@@ -78,8 +79,10 @@ local INSTRUCTIONS <const> = {
 --
 -- Held to the left of the adapter rather than under it, because the space under
 -- it belongs to the heading and there are only 14 spare pixels on this screen.
+-- Tied to the adapter rather than written down, so moving one moves the other
+-- and the readout cannot end up floating beside nothing.
 local RPM_READOUT_RIGHT <const> = ADAPTER_LEFT - 14
-local RPM_READOUT_TOP <const> = 62
+local RPM_READOUT_TOP <const> = ADAPTER_TOP + ADAPTER_SIZE // 2 - 11
 
 local TARGET_RPM <const> = 45
 

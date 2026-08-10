@@ -64,6 +64,36 @@ local INSTRUCTIONS <const> = {
 }
 
 
+-- The speed readout, and the thing it is really for.
+--
+-- It appears only while the crank is being used, so an idle screen stays clean
+-- and turning the crank is what reveals it. Once it is there, a number climbing
+-- toward a familiar one is an invitation, and 45 is the number this whole app is
+-- named after.
+--
+-- Held to the left of the adapter rather than under it, because the space under
+-- it belongs to the heading and there are only 14 spare pixels on this screen.
+local RPM_READOUT_RIGHT <const> = ADAPTER_LEFT - 14
+local RPM_READOUT_TOP <const> = 62
+
+local TARGET_RPM <const> = 45
+
+-- Wide enough to be reachable by hand and narrow enough to feel found. At 45 rpm
+-- the crank is turning 270 degrees a second, so this is about a sixth of a turn
+-- a second either side of it.
+local RPM_TOLERANCE <const> = 2.5
+
+-- A hand on a crank is not steady, and an unsmoothed reading flickers several
+-- rpm between frames, which makes the target impossible to sit on.
+local SPEED_SMOOTHING <const> = 0.25
+
+-- How long the readout stays up after the crank stops, so it does not vanish
+-- the instant you pause.
+local READOUT_LINGER_FRAMES <const> = 45
+
+local DEGREES_PER_SECOND_IN_ONE_RPM <const> = 6
+
+
 -- Centered by measuring the text rather than by counting characters, since
 -- counting characters is what got the first layout wrong.
 local function drawCentered(text, top)
@@ -71,8 +101,41 @@ local function drawCentered(text, top)
 end
 
 
+-- How fast the crank is turning, in rpm, and whether that happens to be 45.
+local function drawSpeedReadout()
+    if ScreenEmpty.framesSinceCranked >= READOUT_LINGER_FRAMES then
+        return
+    end
+
+    local revolutionsPerMinute = math.abs(ScreenEmpty.smoothedDegreesPerSecond)
+        / DEGREES_PER_SECOND_IN_ONE_RPM
+    local label = string.format("%d rpm", math.floor(revolutionsPerMinute + 0.5))
+
+    graphics.setFont(Typography.body)
+    local labelWidth = graphics.getTextSize(label)
+    local left = RPM_READOUT_RIGHT - labelWidth
+
+    if math.abs(revolutionsPerMinute - TARGET_RPM) <= RPM_TOLERANCE then
+        -- Landed on it. The readout inverts, which on a screen this size is
+        -- more legible than anything drawn around the adapter and does not
+        -- fight the heading for room.
+        --
+        -- Black fills and white glyphs, because the display is inverted on the
+        -- way out, so this comes off the screen as a lit box with dark type.
+        graphics.fillRect(left - 5, RPM_READOUT_TOP - 3, labelWidth + 10, 22)
+        graphics.setImageDrawMode(graphics.kDrawModeFillWhite)
+        graphics.drawText(label, left, RPM_READOUT_TOP)
+        graphics.setImageDrawMode(graphics.kDrawModeCopy)
+    else
+        graphics.drawText(label, left, RPM_READOUT_TOP)
+    end
+end
+
+
 function ScreenEmpty.enter()
     ScreenEmpty.angleInDegrees = 0
+    ScreenEmpty.smoothedDegreesPerSecond = 0
+    ScreenEmpty.framesSinceCranked = READOUT_LINGER_FRAMES
 end
 
 
@@ -83,10 +146,21 @@ function ScreenEmpty.update()
     local crankDelta = playdate.getCrankChange()
     if crankDelta ~= 0 then
         ScreenEmpty.angleInDegrees = ScreenEmpty.angleInDegrees + crankDelta
+        ScreenEmpty.framesSinceCranked = 0
     else
         ScreenEmpty.angleInDegrees = ScreenEmpty.angleInDegrees
             + IDLE_DEGREES_PER_SECOND / FRAMES_PER_SECOND
+        ScreenEmpty.framesSinceCranked = ScreenEmpty.framesSinceCranked + 1
     end
+
+    -- Smoothed rather than read straight off the frame. The idle turn is left
+    -- out of it on purpose: the readout is a measure of what you are doing, and
+    -- reporting 4 rpm at rest would make it look like a broken speedometer.
+    local instantDegreesPerSecond = crankDelta * FRAMES_PER_SECOND
+    ScreenEmpty.smoothedDegreesPerSecond =
+        ScreenEmpty.smoothedDegreesPerSecond
+        + (instantDegreesPerSecond - ScreenEmpty.smoothedDegreesPerSecond)
+        * SPEED_SMOOTHING
 
     -- Nothing to go to. There is no library, so every other screen would be
     -- empty as well, and a button that appears to do nothing is worse than one
@@ -122,4 +196,6 @@ function ScreenEmpty.draw()
     -- screen ran last leaves its own mode selected.
     graphics.setImageDrawMode(graphics.kDrawModeCopy)
     spinFrames:getImage(frameNumber + 1):draw(ADAPTER_LEFT, ADAPTER_TOP)
+
+    drawSpeedReadout()
 end

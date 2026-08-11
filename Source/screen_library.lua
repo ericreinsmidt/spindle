@@ -18,6 +18,7 @@ import "library"
 import "player"
 import "typography"
 import "artwork"
+import "transition"
 
 ScreenLibrary = {}
 
@@ -385,6 +386,13 @@ local function updateAlbumList()
         trackScrollPixels = 0
         trackHighlightPixels = TRACK_LIST_TOP_EDGE
 
+        -- Opening a record goes further in, so it pushes left, the same as
+        -- moving from the library to now playing. These two views are not
+        -- separate screens, but nothing about a transition cares: it
+        -- photographs the frame buffer and slides whatever draws next against
+        -- it, so saying when it happens is the whole of the work.
+        Transition.begin(1, 0)
+
         currentView = VIEW_TRACKS
     end
 
@@ -581,6 +589,8 @@ local function updateTrackList()
     end
 
     if playdate.buttonJustPressed(playdate.kButtonB) then
+        -- Coming back out, so it pops right.
+        Transition.begin(-1, 0)
         currentView = VIEW_ALBUMS
         return nil
     end

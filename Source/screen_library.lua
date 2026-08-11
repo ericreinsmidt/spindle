@@ -377,28 +377,36 @@ local function drawAlbumList()
                 local textTop = bandTop + (ALBUM_ROW_HEIGHT - textBlockHeight) // 2
                 local detailTop = textTop + titleHeight + ALBUM_TITLE_TO_DETAIL_GAP
 
-                -- Only the selected row slides. Every long title on screen
-                -- moving at once is unreadable, and it would tie the cost of
-                -- the list to how many rows happen not to fit. The selected row
-                -- is also the only one anybody is reading.
+                -- Only the selected row slides, and only its title.
+                --
+                -- Every long title on screen moving at once is unreadable, and
+                -- it would tie the cost of the list to how many rows happen not
+                -- to fit. The selected row is the one being read.
+                --
+                -- The detail line under it used to slide as well and that was
+                -- worse than not sliding. Two lines of different lengths run at
+                -- the same speed have different cycles, so they pause and start
+                -- again at different moments, and two things in one row moving
+                -- out of step reads as a stutter even though neither is
+                -- stuttering. One moving line to a row. The title is the one
+                -- worth reading in full; what falls off the detail line is the
+                -- running time, which is the least of what it says.
                 if isSelected then
                     Marquee.draw("albumRowTitle", Typography.large, collection.title,
                         ALBUM_TEXT_LEFT, textTop, textWidth, titleHeight)
-                    Marquee.draw("albumRowDetail", Typography.body, collection.detail,
-                        ALBUM_TEXT_LEFT, detailTop, textWidth, ALBUM_ROW_HEIGHT - titleHeight)
                 else
                     graphics.setFont(Typography.large)
                     graphics.drawText(
                         Typography.truncateToWidth(
                             Typography.large, collection.title, textWidth),
                         ALBUM_TEXT_LEFT, textTop)
-
-                    graphics.setFont(Typography.body)
-                    graphics.drawText(
-                        Typography.truncateToWidth(
-                            Typography.body, collection.detail, textWidth),
-                        ALBUM_TEXT_LEFT, detailTop)
                 end
+
+                graphics.setFont(Typography.body)
+                graphics.drawText(
+                    Typography.truncateToWidth(
+                        Typography.body, collection.detail, textWidth),
+                    ALBUM_TEXT_LEFT, detailTop)
             end)
     end
 
@@ -455,10 +463,11 @@ local function drawTrackList()
 
     local headerWidth = CONTENT_RIGHT_EDGE - LIST_LEFT_EDGE
 
-    graphics.setFont(Typography.large)
-    graphics.drawText(
-        Typography.truncateToWidth(Typography.large, openedCollection.title, headerWidth),
-        LIST_LEFT_EDGE, 3)
+    -- The header slides whenever it needs to, rather than only when selected.
+    -- There is one of it, it is not competing with anything, and a record with a
+    -- long name is exactly the case where you want to see the whole name.
+    Marquee.draw("trackHeaderTitle", Typography.large, openedCollection.title,
+        LIST_LEFT_EDGE, 3, headerWidth, 25)
 
     -- An album names its artist here. A playlist has no single artist, so it
     -- says what it is and how long it runs instead, which is the thing you
@@ -467,6 +476,8 @@ local function drawTrackList()
         and openedCollection.detail
         or (openedCollection.coverAlbum and openedCollection.coverAlbum.artist or "")
 
+    -- Truncated rather than slid, so the header has one moving line rather than
+    -- two out of step with each other, the same as a row.
     graphics.setFont(Typography.body)
     graphics.drawText(
         Typography.truncateToWidth(Typography.body, subheading, headerWidth),
@@ -500,9 +511,20 @@ local function drawTrackList()
                 titleText = titleText .. "   " .. (entry.album.artist or "")
             end
 
-            Typography.drawCenteredInBand(Typography.body,
-                Typography.truncateToWidth(Typography.body, titleText, titleWidth),
-                TRACK_TITLE_LEFT, bandTop, TRACK_ROW_HEIGHT)
+            -- Only the selected row slides, for the same reason the album list
+            -- only slides the selected one: every long title moving at once is
+            -- unreadable, and the selected row is the one being read.
+            if trackIndex == selectedTrackIndex then
+                local lineHeight = Typography.body:getHeight()
+                Marquee.draw("trackRowTitle", Typography.body, titleText,
+                    TRACK_TITLE_LEFT,
+                    bandTop + (TRACK_ROW_HEIGHT - lineHeight) // 2,
+                    titleWidth, lineHeight)
+            else
+                Typography.drawCenteredInBand(Typography.body,
+                    Typography.truncateToWidth(Typography.body, titleText, titleWidth),
+                    TRACK_TITLE_LEFT, bandTop, TRACK_ROW_HEIGHT)
+            end
 
             local durationText = Library.formatDuration(track.duration)
             Typography.drawCenteredInBand(Typography.body, durationText,

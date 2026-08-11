@@ -39,6 +39,13 @@ local TEXT_RIGHT <const> = 394
 local TITLE_Y <const> = 8
 local ARTIST_Y <const> = 34
 local ALBUM_Y <const> = 54
+
+-- How tall a clip has to be to hold one line, for the titles that slide because
+-- they do not fit. Taken from the gap to the line below rather than from the
+-- font, so a descender cannot be shaved off: the title has 26 pixels before the
+-- artist and the shorter lines have 20.
+local TITLE_BAND_HEIGHT <const> = ARTIST_Y - TITLE_Y
+local LINE_BAND_HEIGHT <const> = ALBUM_Y - ARTIST_Y
 local TRACK_COUNTER_Y <const> = 74
 
 -- The compact spectrum fills what is left of the right column and is bottom
@@ -259,6 +266,10 @@ function ScreenNowPlaying.enter()
     -- mode, where B has almost certainly just been held down.
     downPressedAtMilliseconds = nil
     downHoldAlreadyFired = false
+
+    -- A long title starts from its beginning each time this screen is arrived
+    -- at, rather than wherever it had slid to last time.
+    Marquee.reset()
     backPressedAtMilliseconds = nil
     backHoldAlreadyFired = false
 end
@@ -378,27 +389,26 @@ function ScreenNowPlaying.draw()
         Artwork.drawCoverMark(ARTWORK_LEFT, ARTWORK_TOP, ARTWORK_SIZE)
     end
 
-    -- Everything in the right hand column is trimmed to the column, because a
-    -- long title would otherwise run off the right of the screen.
+    -- Everything in the right hand column is held to the column, because a long
+    -- title would otherwise run off the right of the screen. Anything too long
+    -- slides back and forth rather than being cut, since this is the one screen
+    -- where a title sits still long enough to be worth reading in full.
     local columnWidth = TEXT_RIGHT - TEXT_LEFT
 
-    graphics.setFont(Typography.large)
-    graphics.drawText(
-        Typography.truncateToWidth(Typography.large, track.title, columnWidth),
-        TEXT_LEFT, TITLE_Y)
+    Marquee.draw("nowPlayingTitle", Typography.large, track.title,
+        TEXT_LEFT, TITLE_Y, columnWidth, TITLE_BAND_HEIGHT)
 
-    graphics.setFont(Typography.body)
-    graphics.drawText(
-        Typography.truncateToWidth(Typography.body, album.artist or "", columnWidth),
-        TEXT_LEFT, ARTIST_Y)
+    Marquee.draw("nowPlayingArtist", Typography.body, album.artist or "",
+        TEXT_LEFT, ARTIST_Y, columnWidth, LINE_BAND_HEIGHT)
 
     local albumLine = album.title or ""
     if album.year then
         albumLine = albumLine .. "  " .. album.year
     end
-    graphics.drawText(
-        Typography.truncateToWidth(Typography.body, albumLine, columnWidth),
-        TEXT_LEFT, ALBUM_Y)
+    Marquee.draw("nowPlayingAlbum", Typography.body, albumLine,
+        TEXT_LEFT, ALBUM_Y, columnWidth, LINE_BAND_HEIGHT)
+
+    graphics.setFont(Typography.body)
 
     graphics.drawText(
         string.format("track %d of %d", entry.trackIndex or 1, #album.tracks),

@@ -375,16 +375,30 @@ local function drawAlbumList()
                     or graphics.kDrawModeCopy)
 
                 local textTop = bandTop + (ALBUM_ROW_HEIGHT - textBlockHeight) // 2
+                local detailTop = textTop + titleHeight + ALBUM_TITLE_TO_DETAIL_GAP
 
-                graphics.setFont(Typography.large)
-                graphics.drawText(
-                    Typography.truncateToWidth(Typography.large, collection.title, textWidth),
-                    ALBUM_TEXT_LEFT, textTop)
+                -- Only the selected row slides. Every long title on screen
+                -- moving at once is unreadable, and it would tie the cost of
+                -- the list to how many rows happen not to fit. The selected row
+                -- is also the only one anybody is reading.
+                if isSelected then
+                    Marquee.draw("albumRowTitle", Typography.large, collection.title,
+                        ALBUM_TEXT_LEFT, textTop, textWidth, titleHeight)
+                    Marquee.draw("albumRowDetail", Typography.body, collection.detail,
+                        ALBUM_TEXT_LEFT, detailTop, textWidth, ALBUM_ROW_HEIGHT - titleHeight)
+                else
+                    graphics.setFont(Typography.large)
+                    graphics.drawText(
+                        Typography.truncateToWidth(
+                            Typography.large, collection.title, textWidth),
+                        ALBUM_TEXT_LEFT, textTop)
 
-                graphics.setFont(Typography.body)
-                graphics.drawText(
-                    Typography.truncateToWidth(Typography.body, collection.detail, textWidth),
-                    ALBUM_TEXT_LEFT, textTop + titleHeight + ALBUM_TITLE_TO_DETAIL_GAP)
+                    graphics.setFont(Typography.body)
+                    graphics.drawText(
+                        Typography.truncateToWidth(
+                            Typography.body, collection.detail, textWidth),
+                        ALBUM_TEXT_LEFT, detailTop)
+                end
             end)
     end
 
@@ -508,6 +522,10 @@ end
 -- Called when the library screen becomes visible again, so returning from now
 -- playing lands where you left off rather than resetting to the top.
 function ScreenLibrary.enter()
+    -- So a title that was mid slide when this screen was last open does not
+    -- reappear part way along, which reads as the list having been running
+    -- while nobody was looking at it.
+    Marquee.reset()
 end
 
 

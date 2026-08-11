@@ -422,8 +422,8 @@ local function drawAlbumList()
     local detailHeight = Typography.body:getHeight()
     local textBlockHeight = titleHeight + ALBUM_TITLE_TO_DETAIL_GAP + detailHeight
 
-    -- Where the list has slid to, as opposed to the row it is heading for.
     beginEasingFrame()
+
     albumScrollPixels = easeTowards(albumScrollPixels,
         albumScrollOffset * ALBUM_ROW_HEIGHT)
 
@@ -437,8 +437,19 @@ local function drawAlbumList()
     -- Where the highlight has slid to. The bar chases the selected row rather
     -- than being drawn on it, which is what lets it move between rows while the
     -- list itself is standing still.
+    -- Measured against where the list is going rather than where it has got
+    -- to, which is what keeps the two motions from ever running at once.
+    --
+    -- Move the selection within the visible rows and the scroll target does not
+    -- change, so this does: the bar travels and the list stands still. Move it
+    -- past the end and both the row and the scroll target shift by exactly one
+    -- row, so this does not change at all: the bar stays put and the list slides
+    -- underneath it.
+    --
+    -- Aiming at the eased scroll instead made the bar chase its own row down the
+    -- screen during a scroll, so it trailed the row it belongs to.
     local selectedRowTop = ALBUM_LIST_TOP_EDGE
-        + (selectedAlbumIndex - 1) * ALBUM_ROW_HEIGHT - albumScrollPixels
+        + (selectedAlbumIndex - 1 - albumScrollOffset) * ALBUM_ROW_HEIGHT
     albumHighlightPixels = easeTowards(albumHighlightPixels, selectedRowTop)
 
     -- Draw every visible row once. Called twice: once for the list as it reads
@@ -613,6 +624,7 @@ local function drawTrackList()
     local titleWidth = CONTENT_RIGHT_EDGE - TRACK_DURATION_COLUMN_WIDTH - TRACK_TITLE_LEFT
 
     beginEasingFrame()
+
     trackScrollPixels = easeTowards(trackScrollPixels,
         trackScrollOffset * TRACK_ROW_HEIGHT)
 
@@ -625,7 +637,7 @@ local function drawTrackList()
     graphics.setClipRect(0, TRACK_LIST_TOP_EDGE, 400, SCREEN_HEIGHT - TRACK_LIST_TOP_EDGE)
 
     local selectedRowTop = TRACK_LIST_TOP_EDGE
-        + (selectedTrackIndex - 1) * TRACK_ROW_HEIGHT - trackScrollPixels
+        + (selectedTrackIndex - 1 - trackScrollOffset) * TRACK_ROW_HEIGHT
     trackHighlightPixels = easeTowards(trackHighlightPixels, selectedRowTop)
 
     -- Drawn twice, the same as the album list: once as the list reads off the
@@ -727,9 +739,9 @@ function ScreenLibrary.enter()
     albumScrollPixels = albumScrollOffset * ALBUM_ROW_HEIGHT
     trackScrollPixels = trackScrollOffset * TRACK_ROW_HEIGHT
     albumHighlightPixels = ALBUM_LIST_TOP_EDGE
-        + (selectedAlbumIndex - 1) * ALBUM_ROW_HEIGHT - albumScrollPixels
+        + (selectedAlbumIndex - 1 - albumScrollOffset) * ALBUM_ROW_HEIGHT
     trackHighlightPixels = TRACK_LIST_TOP_EDGE
-        + (selectedTrackIndex - 1) * TRACK_ROW_HEIGHT - trackScrollPixels
+        + (selectedTrackIndex - 1 - trackScrollOffset) * TRACK_ROW_HEIGHT
     lastEasedAt = nil
 end
 

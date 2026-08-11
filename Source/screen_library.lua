@@ -196,7 +196,30 @@ end
 -- Rebuilt on each draw rather than cached. It is a handful of table inserts over
 -- a list that only changes when the library reloads, and a cache would be a
 -- second thing to keep in step for no measurable gain.
+-- Built once and kept.
+--
+-- This used to be rebuilt on every call, and it is called twice a frame, once
+-- from update and once from draw. Each rebuild summed every track's duration for
+-- every album, formatted a detail line for each, and called
+-- playbackListForAlbum for all of them, which allocates a table for every track
+-- in the library. On a 155 track library that is around 310 tables and a pile of
+-- string formatting a frame, for a list that cannot change while the app is
+-- running.
+--
+-- It cost about 20 milliseconds a frame. The album list ran at 19 frames a
+-- second against now playing's 30, measured on device, and none of the
+-- difference was drawing: removing the covers entirely changed nothing.
+--
+-- Nothing invalidates this because nothing can. The library is read once at
+-- startup and there is no way to add a record without leaving the app.
+local cachedCollections = nil
+
+
 local function browsableCollections()
+    if cachedCollections then
+        return cachedCollections
+    end
+
     local collections = {}
 
     for _, playlist in ipairs(Library.playlists) do
@@ -230,12 +253,30 @@ local function browsableCollections()
             isPlaylist = false,
             title = album.title,
             detail = table.concat(detailParts, "  "),
-            entries = Library.playbackListForAlbum(album),
+
+            -- No entries here. Building the playback list for every album means
+            -- allocating a table per track across the whole library, and all but
+            -- one of those is for a record nobody opened. entriesFor builds the
+            -- one that gets opened, the first time it is asked for.
             coverAlbum = album,
         })
     end
 
+    cachedCollections = collections
     return collections
+end
+
+
+-- The playback list for a collection, built on first use and then kept.
+--
+-- A playlist already is a list of entries, so it has them from the start. An
+-- album has to be turned into one, and that is worth doing when somebody opens
+-- the record rather than for all twelve every time the list is drawn.
+local function entriesFor(collection)
+    if not collection.entries then
+        collection.entries = Library.playbackListForAlbum(collection.coverAlbum)
+    end
+    return collection.entries
 end
 
 -- Load an album's cover thumbnail, or return nil when there is nothing to show.
@@ -294,6 +335,11 @@ local function updateAlbumList()
 
     if playdate.buttonJustPressed(playdate.kButtonA) then
         openedCollection = collections[selectedAlbumIndex]
+
+        -- Built here, at the one moment somebody has asked for this record, so
+        -- the track list and everything after it can read entries directly.
+        entriesFor(openedCollection)
+
         selectedTrackIndex = 1
         trackScrollOffset = 0
         currentView = VIEW_TRACKS

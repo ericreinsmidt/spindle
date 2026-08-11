@@ -23,6 +23,7 @@ import "player"
 import "session"
 import "typography"
 import "marquee"
+import "transition"
 import "artwork"
 import "screen_library"
 import "screen_nowplaying"
@@ -46,6 +47,22 @@ local screensByName = {
 
 local currentScreenName = "library"
 
+-- Which way the new screen arrives from, per pair of screens.
+--
+-- x of 1 means it comes in from the right, so the picture pushes left, which is
+-- what going further in should feel like. Coming back is the same movement
+-- reversed. The visualizer arrives from above because up is the button that
+-- fetches it, and leaves downward for the same reason.
+--
+-- Pocket mode is deliberately absent. It exists to stop drawing, and sliding a
+-- picture around for a fifth of a second on the way into it would undo the point
+-- of it.
+local screenEntryDirections <const> = {
+    library = { nowplaying = { 1, 0 } },
+    nowplaying = { library = { -1, 0 }, visualizer = { 0, -1 } },
+    visualizer = { nowplaying = { 0, 1 } },
+}
+
 -- Set when a library was present but could not be loaded, so the app can explain
 -- what went wrong rather than showing an empty list.
 --
@@ -59,6 +76,17 @@ local function switchToScreen(screenName)
     if not screensByName[screenName] or screenName == currentScreenName then
         return
     end
+
+    -- Photograph the screen being left before anything else happens. The frame
+    -- buffer still holds it at this point, since this runs during update and the
+    -- new screen has not drawn yet.
+    local direction = (screenEntryDirections[currentScreenName] or {})[screenName]
+    if direction then
+        Transition.begin(direction[1], direction[2])
+    else
+        Transition.cancel()
+    end
+
     currentScreenName = screenName
     local screen = screensByName[screenName]
     if screen.enter then
@@ -151,6 +179,11 @@ else
     startupFailed = true
 end
 
+-- Whatever the startup decided, it arrives rather than slides in. Restoring a
+-- session switches screens before a single frame has been drawn, so the picture
+-- a transition would photograph is not the last screen, it is nothing at all.
+Transition.cancel()
+
 
 -- ---------------------------------------------------------------------------
 -- Lifecycle
@@ -216,6 +249,18 @@ function playdate.update()
     if requestedScreen then
         switchToScreen(requestedScreen)
         screen = screensByName[currentScreenName]
+    end
+
+    -- While one screen is sliding out and the next is sliding in, the new screen
+    -- draws into an image instead of onto the display, and the transition puts
+    -- both down in the right places. It hands back false the moment the slide is
+    -- over, so this is the normal path within a few frames.
+    --
+    -- The screen still updates during the slide; only its drawing is diverted.
+    -- Its first frames are therefore already alive as it arrives rather than
+    -- starting once it lands.
+    if Transition.draw(function() screen.draw() end) then
+        return
     end
 
     -- Screens normally get a freshly cleared frame. Pocket mode takes that over

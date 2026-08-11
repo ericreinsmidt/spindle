@@ -23,6 +23,7 @@ Docs = {}
 -- makes this a copy out rather than a copy in place.
 local FILES_TO_INSTALL <const> = {
     { source = "docs/README.txt", destination = "README.txt" },
+    { source = "docs/WINDOWS.txt", destination = "WINDOWS.txt" },
     { source = "docs/ingest.py", destination = "ingest.py" },
 }
 

@@ -4,7 +4,7 @@ Spindle's app runs on the Playdate like any other, but the music has to be
 converted on a computer first. The tool that does it, `tools/ingest.py`, runs on
 Windows. This is what you need and how to run it.
 
-You do not need to build the app. Download `Spindle-1.0.zip` from
+You do not need to build the app. Download the app zip from
 [Releases](https://github.com/ericreinsmidt/spindle/releases) and install it
 either by uploading it at
 [play.date/account/sideload](https://play.date/account/sideload) and fetching it
@@ -14,24 +14,29 @@ end of this page. Only the music conversion needs anything installed, and
 
 ## Getting the conversion tool
 
-`Spindle-1.0.zip` is the app and nothing else. The tool that converts your music
-is the other download on the same
-[release](https://github.com/ericreinsmidt/spindle/releases) page,
-`spindle-tools-1.0.zip`.
+It comes with the app. Open Spindle once with no music on the device and it
+writes `ingest.py` and a short `README.txt` into its own folder, which is exactly
+the folder your converted music has to end up in.
 
-Extract it anywhere. Every command below is run from inside the folder it makes:
+To fetch them, connect the Playdate over USB and put it into data disk mode from
+**Settings**, **System**, **Reboot to Data Disk**. A `PLAYDATE` drive appears.
+The files are in:
 
 ```
-cd C:\Users\you\Downloads\spindle-tools-1.0
+PLAYDATE\Data\com.reinsmidt.spindle\
 ```
 
-Take the version that matches your app. The tools and the app agree about file
-formats, and a mismatched pair is a problem you should not have to think about.
+Copy `ingest.py` somewhere convenient on your computer and run it from there.
+Every command below assumes you are in whichever folder you put it in.
+
+There is no separate tools download. There used to be, and it was one more thing
+to keep in step with the app; shipping the tool inside the app means the version
+you have always matches the app you are running it for.
 
 The whole repository works just as well if you would rather have it, either from
 the green **Code** button and **Download ZIP**, or with
-`git clone https://github.com/ericreinsmidt/spindle.git`. The layout is the same,
-so every command below is unchanged.
+`git clone https://github.com/ericreinsmidt/spindle.git`. `ingest.py` is in
+`tools/` there, and every command below is unchanged.
 
 ## What you need
 
@@ -193,9 +198,9 @@ Once the drive appears, copy in two things:
   folder itself. When it is right, the device has
   `Data\com.reinsmidt.spindle\library.json` sitting beside `music\`, `art\`
   and `analysis\`.
-- **The app**, if you did not sideload it through the website. Extract
-  `Spindle-1.0.zip`, which gives you a folder `Spindle-1.0` with a folder
-  `Spindle.pdx` inside it. Copy **`Spindle.pdx`**, the inner one, into `Games\`.
+- **The app**, if you did not sideload it through the website. Extract the app
+  zip, which gives you a folder named after it with a folder `Spindle.pdx`
+  inside. Copy **`Spindle.pdx`**, the inner one, into `Games\`.
 
   Copy the inner folder, not the one Explorer made. When it is right the device
   has `Games\Spindle.pdx\pdxinfo`. If it has
@@ -243,8 +248,9 @@ and the right headers on the audio, artwork and analysis files.
 One thing did go wrong on that run, and it is fixed. The app download used to be
 called `Spindle.pdx.zip`, which Explorer extracts into a folder of the same name,
 so you ended up with a `Spindle.pdx` inside a `Spindle.pdx` and the launcher
-reported `pdxinfo file not found`. That is why the download is now
-`Spindle-1.0.zip`.
+reported `pdxinfo file not found`. That is why the download now carries the
+version in its name instead, so the folder Explorer makes is never called the
+same thing as the folder you have to copy.
 
 Two branches have not been exercised: the fallback that looks for the SDK inside
 a OneDrive-redirected Documents folder, and setting `PLAYDATE_SDK_PATH` by hand

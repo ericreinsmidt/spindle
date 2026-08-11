@@ -57,3 +57,8 @@ notes/
 tools/demo-recorder/
 tools/make_demo_video.py
 tools/make_readme_animations.py
+
+# The Windows walkthrough as the app ships it, turned into plain text from
+# docs/windows.md by build.sh. Generated, so the Markdown original is the only
+# copy anybody edits.
+Source/docs/WINDOWS.txt

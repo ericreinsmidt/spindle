@@ -39,6 +39,20 @@ done
 mkdir -p Source/docs
 cp tools/ingest.py Source/docs/ingest.py
 
+# The Windows walkthrough ships too, so the in-app documentation is a complete
+# replacement for the separate tools download rather than most of one.
+#
+# It is Markdown in the repository because that is what GitHub renders, and the
+# copy that ships is turned into something Notepad reads: the code fences come
+# out, and links become the text followed by the address in brackets. The tables
+# are left alone, since pipes and dashes are readable as a table either way.
+#
+# Transformed rather than kept as a second hand-written file, because two copies
+# of a ten kilobyte document drift and the whole point of shipping it is that it
+# cannot.
+sed -E -e '/^```/d' -e 's/\[([^]]*)\]\(([^)]*)\)/\1 (\2)/g' \
+	docs/windows.md > Source/docs/WINDOWS.txt
+
 echo "building $OUT with SDK $(cat "$SDK/VERSION.txt")"
 "$PDC" Source "$OUT"
 echo "ok: $OUT"

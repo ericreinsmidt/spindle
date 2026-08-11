@@ -80,9 +80,17 @@ IF IT STILL SHOWS NOTHING
                               which and why as it runs.
 
 
+ON WINDOWS
+
+WINDOWS.txt, beside this file, is a longer walkthrough written for Windows:
+what to install, where the Playdate SDK has to be, and how to copy the
+result across with Explorer. Read that instead of this if you are on
+Windows.
+
+
 MORE
 
-Full instructions, including a longer Windows walkthrough, are at
+Everything, including the source, is at
 
   github.com/ericreinsmidt/spindle
 

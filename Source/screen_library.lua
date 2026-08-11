@@ -79,6 +79,12 @@ local albumScrollOffset = 0
 local albumScrollPixels = 0
 local trackScrollPixels = 0
 
+-- Where the selection bar has slid to, in screen pixels. Separate from the
+-- scroll, because moving the selection within the visible rows moves the bar
+-- without moving the list at all.
+local albumHighlightPixels = 0
+local trackHighlightPixels = 0
+
 -- How quickly a list catches up with where it is going.
 --
 -- This is a time constant, not a speed: each step closes the same fraction of
@@ -190,34 +196,6 @@ local function readMovementInput()
     movement = movement + playdate.getCrankTicks(CRANK_TICKS_PER_REVOLUTION)
 
     return movement
-end
-
-
--- Draw one row, highlighting it by filling the background black and drawing
--- the text in white. On a 1-bit screen an inverted row is the clearest way to
--- show selection.
---
--- bandTop is the top of the highlight itself rather than an offset into it, and
--- the contents function is handed the band it has to sit inside. Everything
--- inside then centers itself against measured font heights. The previous
--- version drew text at a fixed offset from the top and let the leftover space
--- collect underneath, which made the highlight look like it sat lower than the
--- row it belonged to.
---
--- The selected state is passed through as well, because artwork has to opt out
--- of the highlight. It works by forcing everything drawn to white, and doing
--- that to a picture would flatten it into a solid white square.
-local function drawRow(bandTop, bandHeight, isSelected, drawContents)
-    if isSelected then
-        graphics.fillRect(LIST_LEFT_EDGE - 2, bandTop, LIST_WIDTH + 4, bandHeight)
-        graphics.setImageDrawMode(graphics.kDrawModeFillWhite)
-    else
-        graphics.setImageDrawMode(graphics.kDrawModeCopy)
-    end
-
-    drawContents(isSelected)
-
-    graphics.setImageDrawMode(graphics.kDrawModeCopy)
 end
 
 
@@ -405,6 +383,7 @@ local function updateAlbumList()
         -- wherever the last one happened to be would read as the wrong thing
         -- arriving rather than the right thing appearing.
         trackScrollPixels = 0
+        trackHighlightPixels = TRACK_LIST_TOP_EDGE
 
         currentView = VIEW_TRACKS
     end
@@ -455,84 +434,106 @@ local function drawAlbumList()
     local pixelsScrolledIntoFirstRow =
         albumScrollPixels - firstVisibleIndex * ALBUM_ROW_HEIGHT
 
+    -- Where the highlight has slid to. The bar chases the selected row rather
+    -- than being drawn on it, which is what lets it move between rows while the
+    -- list itself is standing still.
+    local selectedRowTop = ALBUM_LIST_TOP_EDGE
+        + (selectedAlbumIndex - 1) * ALBUM_ROW_HEIGHT - albumScrollPixels
+    albumHighlightPixels = easeTowards(albumHighlightPixels, selectedRowTop)
+
+    -- Draw every visible row once. Called twice: once for the list as it reads
+    -- off the bar, and once more clipped to the bar with everything in white.
+    --
+    -- Two passes rather than colouring each row by whether it is selected,
+    -- because while the bar is moving it lies across two rows at once and
+    -- neither of them is wholly on it. Anything keyed to the selection can only
+    -- pick one, and the half of the other row sitting on black would vanish.
+    --
+    -- The marquee is safe being called twice a frame: it measures its own
+    -- movement against the clock, so the second call is handed no elapsed time
+    -- and moves nothing.
+    local function drawAlbumRows(onTheBar)
+        for visibleRow = 1, visibleRowCount + 1 do
+            local collectionIndex = firstVisibleIndex + visibleRow
+            local collection = collections[collectionIndex]
+            if not collection then
+                break
+            end
+
+            local bandTop = ALBUM_LIST_TOP_EDGE + (visibleRow - 1) * ALBUM_ROW_HEIGHT
+                - pixelsScrolledIntoFirstRow
+
+            -- Every cover is flipped, because the display flips the whole screen
+            -- again afterwards and a cover should look like a photograph rather
+            -- than a negative.
+            --
+            -- Flipping only the highlighted row was tried first, on the
+            -- reasoning that its bar comes out light and is therefore the only
+            -- place a cover has light ground to sit on. That leaves every other
+            -- one a negative, which is the thing worth avoiding in the first
+            -- place.
+            local coverTop = bandTop + (ALBUM_ROW_HEIGHT - ALBUM_COVER_SIZE) // 2
+            local thumbnail = thumbnailForAlbum(collection.coverAlbum)
+            if thumbnail then
+                Artwork.draw(thumbnail, ALBUM_COVER_LEFT, coverTop)
+            else
+                Artwork.drawCoverMark(ALBUM_COVER_LEFT, coverTop, ALBUM_COVER_SIZE)
+            end
+
+            -- Put the text's own draw mode back, whichever pass this is. Artwork
+            -- leaves the mode where it found it, so this has to be set after the
+            -- cover rather than before it.
+            graphics.setImageDrawMode(onTheBar
+                and graphics.kDrawModeFillWhite
+                or graphics.kDrawModeCopy)
+
+            local textTop = bandTop + (ALBUM_ROW_HEIGHT - textBlockHeight) // 2
+            local detailTop = textTop + titleHeight + ALBUM_TITLE_TO_DETAIL_GAP
+
+            -- Only the selected row slides. Every long title on screen moving at
+            -- once is unreadable, and it would tie the cost of the list to how
+            -- many rows happen not to fit.
+            if collectionIndex == selectedAlbumIndex then
+                Marquee.draw("albumRowTitle", Typography.large, collection.title,
+                    ALBUM_TEXT_LEFT, textTop, textWidth, titleHeight)
+                Marquee.draw("albumRowDetail", Typography.body, collection.detail,
+                    ALBUM_TEXT_LEFT, detailTop, textWidth,
+                    ALBUM_ROW_HEIGHT - titleHeight)
+            else
+                graphics.setFont(Typography.large)
+                graphics.drawText(
+                    Typography.truncateToWidth(
+                        Typography.large, collection.title, textWidth),
+                    ALBUM_TEXT_LEFT, textTop)
+
+                graphics.setFont(Typography.body)
+                graphics.drawText(
+                    Typography.truncateToWidth(
+                        Typography.body, collection.detail, textWidth),
+                    ALBUM_TEXT_LEFT, detailTop)
+            end
+
+            graphics.setImageDrawMode(graphics.kDrawModeCopy)
+        end
+    end
+
     -- Clipped to the area below the heading, so the row sliding in at the bottom
     -- stops at the edge of the screen and the one sliding out at the top does
     -- not draw over the heading.
     graphics.setClipRect(0, ALBUM_LIST_TOP_EDGE, 400, SCREEN_HEIGHT - ALBUM_LIST_TOP_EDGE)
+    drawAlbumRows(false)
 
-    -- One row more than fits, since while it is moving there is a partial row at
-    -- each end rather than a whole number of them.
-    for visibleRow = 1, visibleRowCount + 1 do
-        local collectionIndex = firstVisibleIndex + visibleRow
-        local collection = collections[collectionIndex]
-        if not collection then
-            break
-        end
+    -- The bar, and everything on it again in white. Clipped to whatever part of
+    -- the bar is on screen, which while it moves is a band lying across two
+    -- rows.
+    local barTop = math.max(ALBUM_LIST_TOP_EDGE, math.floor(albumHighlightPixels))
+    local barBottom = math.min(SCREEN_HEIGHT,
+        math.floor(albumHighlightPixels) + ALBUM_ROW_HEIGHT)
 
-        local bandTop = ALBUM_LIST_TOP_EDGE + (visibleRow - 1) * ALBUM_ROW_HEIGHT
-            - pixelsScrolledIntoFirstRow
-
-        drawRow(bandTop, ALBUM_ROW_HEIGHT, collectionIndex == selectedAlbumIndex,
-            function(isSelected)
-                -- Every cover is flipped, because the display flips the whole
-                -- screen again afterwards and a cover should look like a
-                -- photograph rather than a negative.
-                --
-                -- Flipping only the highlighted row was tried first, on the
-                -- reasoning that its bar comes out light and is therefore the
-                -- only place a cover has light ground to sit on. That leaves
-                -- every other one a negative, which is the thing worth avoiding
-                -- in the first place.
-                local coverTop = bandTop + (ALBUM_ROW_HEIGHT - ALBUM_COVER_SIZE) // 2
-                local thumbnail = thumbnailForAlbum(collection.coverAlbum)
-                if thumbnail then
-                    Artwork.draw(thumbnail, ALBUM_COVER_LEFT, coverTop)
-                else
-                    Artwork.drawCoverMark(ALBUM_COVER_LEFT, coverTop, ALBUM_COVER_SIZE)
-                end
-
-                -- Put the text's own draw mode back, for both kinds of row
-                -- rather than only the highlighted one.
-                --
-                -- This used to restore it only when the row was selected, which
-                -- worked purely by luck: back then the cover was drawn in plain
-                -- copy mode, which is what the text on an unselected row wanted
-                -- anyway. The moment covers started being flipped, every
-                -- unselected row was drawing its text in inverted mode as well,
-                -- and the text disappeared.
-                graphics.setImageDrawMode(isSelected
-                    and graphics.kDrawModeFillWhite
-                    or graphics.kDrawModeCopy)
-
-                local textTop = bandTop + (ALBUM_ROW_HEIGHT - textBlockHeight) // 2
-                local detailTop = textTop + titleHeight + ALBUM_TITLE_TO_DETAIL_GAP
-
-                -- Only the selected row slides, and only its title.
-                --
-                -- Every long title on screen moving at once is unreadable, and
-                -- it would tie the cost of the list to how many rows happen not
-                -- to fit. The selected row is the one being read.
-                --
-                if isSelected then
-                    Marquee.draw("albumRowTitle", Typography.large, collection.title,
-                        ALBUM_TEXT_LEFT, textTop, textWidth, titleHeight)
-                    Marquee.draw("albumRowDetail", Typography.body, collection.detail,
-                        ALBUM_TEXT_LEFT, detailTop, textWidth,
-                        ALBUM_ROW_HEIGHT - titleHeight)
-                else
-                    graphics.setFont(Typography.large)
-                    graphics.drawText(
-                        Typography.truncateToWidth(
-                            Typography.large, collection.title, textWidth),
-                        ALBUM_TEXT_LEFT, textTop)
-
-                    graphics.setFont(Typography.body)
-                    graphics.drawText(
-                        Typography.truncateToWidth(
-                            Typography.body, collection.detail, textWidth),
-                        ALBUM_TEXT_LEFT, detailTop)
-                end
-            end)
+    if barBottom > barTop then
+        graphics.setClipRect(0, barTop, 400, barBottom - barTop)
+        graphics.fillRect(LIST_LEFT_EDGE - 2, barTop, LIST_WIDTH + 4, barBottom - barTop)
+        drawAlbumRows(true)
     end
 
     graphics.clearClipRect()
@@ -623,26 +624,36 @@ local function drawTrackList()
     -- not draw across them.
     graphics.setClipRect(0, TRACK_LIST_TOP_EDGE, 400, SCREEN_HEIGHT - TRACK_LIST_TOP_EDGE)
 
-    -- One row more than fits, for the partial one at each end while it moves.
-    for visibleRow = 1, visibleRowCount + 1 do
-        local trackIndex = firstVisibleIndex + visibleRow
-        local entry = openedCollection.entries[trackIndex]
-        if not entry then
-            break
-        end
-        local track = entry.track
+    local selectedRowTop = TRACK_LIST_TOP_EDGE
+        + (selectedTrackIndex - 1) * TRACK_ROW_HEIGHT - trackScrollPixels
+    trackHighlightPixels = easeTowards(trackHighlightPixels, selectedRowTop)
 
-        local bandTop = TRACK_LIST_TOP_EDGE + (visibleRow - 1) * TRACK_ROW_HEIGHT
-            - pixelsScrolledIntoFirstRow
+    -- Drawn twice, the same as the album list: once as the list reads off the
+    -- bar, once more clipped to the bar with everything in white.
+    local function drawTrackRows(onTheBar)
+        graphics.setImageDrawMode(onTheBar
+            and graphics.kDrawModeFillWhite
+            or graphics.kDrawModeCopy)
 
-        -- The row that has slid past the bottom edge is skipped rather than
-        -- drawn and clipped away, since the clip costs nothing to check and the
-        -- drawing does not.
-        if bandTop >= SCREEN_HEIGHT then
-            break
-        end
+        -- One row more than fits, for the partial one at each end while it moves.
+        for visibleRow = 1, visibleRowCount + 1 do
+            local trackIndex = firstVisibleIndex + visibleRow
+            local entry = openedCollection.entries[trackIndex]
+            if not entry then
+                break
+            end
+            local track = entry.track
 
-        drawRow(bandTop, TRACK_ROW_HEIGHT, trackIndex == selectedTrackIndex, function()
+            local bandTop = TRACK_LIST_TOP_EDGE + (visibleRow - 1) * TRACK_ROW_HEIGHT
+                - pixelsScrolledIntoFirstRow
+
+            -- The row that has slid past the bottom edge is skipped rather than
+            -- drawn and clipped away, since the check costs nothing and the
+            -- drawing does not.
+            if bandTop >= SCREEN_HEIGHT then
+                break
+            end
+
             Typography.drawCenteredInBand(Typography.body,
                 string.format("%2d.", trackIndex),
                 TRACK_NUMBER_LEFT, bandTop, TRACK_ROW_HEIGHT)
@@ -674,7 +685,21 @@ local function drawTrackList()
             Typography.drawCenteredInBand(Typography.body, durationText,
                 CONTENT_RIGHT_EDGE - Typography.body:getTextWidth(durationText),
                 bandTop, TRACK_ROW_HEIGHT)
-        end)
+        end
+
+        graphics.setImageDrawMode(graphics.kDrawModeCopy)
+    end
+
+    drawTrackRows(false)
+
+    local barTop = math.max(TRACK_LIST_TOP_EDGE, math.floor(trackHighlightPixels))
+    local barBottom = math.min(SCREEN_HEIGHT,
+        math.floor(trackHighlightPixels) + TRACK_ROW_HEIGHT)
+
+    if barBottom > barTop then
+        graphics.setClipRect(0, barTop, 400, barBottom - barTop)
+        graphics.fillRect(LIST_LEFT_EDGE - 2, barTop, LIST_WIDTH + 4, barBottom - barTop)
+        drawTrackRows(true)
     end
 
     graphics.clearClipRect()
@@ -701,6 +726,10 @@ function ScreenLibrary.enter()
     -- rather than a screen assembling itself.
     albumScrollPixels = albumScrollOffset * ALBUM_ROW_HEIGHT
     trackScrollPixels = trackScrollOffset * TRACK_ROW_HEIGHT
+    albumHighlightPixels = ALBUM_LIST_TOP_EDGE
+        + (selectedAlbumIndex - 1) * ALBUM_ROW_HEIGHT - albumScrollPixels
+    trackHighlightPixels = TRACK_LIST_TOP_EDGE
+        + (selectedTrackIndex - 1) * TRACK_ROW_HEIGHT - trackScrollPixels
     lastEasedAt = nil
 end
 

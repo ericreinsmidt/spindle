@@ -146,7 +146,29 @@ function Marquee.draw(key, font, text, left, top, width, height)
     -- Clipped rather than trusted to stop at the edge. The text is wider than the
     -- space by definition, so without this it would run over whatever sits beside
     -- it, which on the album list is the cover of the row below.
-    graphics.setClipRect(left, top, width, height)
+    --
+    -- Narrowed into whatever clip the caller already had, and put back
+    -- afterwards, rather than set and then cleared. Clearing it threw away the
+    -- caller's clip: the album list clips its rows to the area below the heading
+    -- and then draws them a second time clipped to the selection bar, and a
+    -- marquee in the middle of that released both. Every row after the selected
+    -- one was then drawn unclipped, and in the white pass that painted white text
+    -- over the black text already there, which read as a row losing its title.
+    local previousLeft, previousTop, previousWidth, previousHeight =
+        graphics.getClipRect()
+
+    local clipLeft = math.max(left, previousLeft)
+    local clipTop = math.max(top, previousTop)
+    local clipRight = math.min(left + width, previousLeft + previousWidth)
+    local clipBottom = math.min(top + height, previousTop + previousHeight)
+
+    if clipRight <= clipLeft or clipBottom <= clipTop then
+        -- None of it is visible. The slot has already been advanced, so it keeps
+        -- time while it is hidden rather than resuming from wherever it stopped.
+        return
+    end
+
+    graphics.setClipRect(clipLeft, clipTop, clipRight - clipLeft, clipBottom - clipTop)
     graphics.drawText(text, left - offset, top)
 
     -- The second copy is what makes the loop seamless: once the first has slid
@@ -157,7 +179,7 @@ function Marquee.draw(key, font, text, left, top, width, height)
         graphics.drawText(text, left - offset + cycleWidth, top)
     end
 
-    graphics.clearClipRect()
+    graphics.setClipRect(previousLeft, previousTop, previousWidth, previousHeight)
 end
 
 

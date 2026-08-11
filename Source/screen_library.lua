@@ -383,30 +383,25 @@ local function drawAlbumList()
                 -- it would tie the cost of the list to how many rows happen not
                 -- to fit. The selected row is the one being read.
                 --
-                -- The detail line under it used to slide as well and that was
-                -- worse than not sliding. Two lines of different lengths run at
-                -- the same speed have different cycles, so they pause and start
-                -- again at different moments, and two things in one row moving
-                -- out of step reads as a stutter even though neither is
-                -- stuttering. One moving line to a row. The title is the one
-                -- worth reading in full; what falls off the detail line is the
-                -- running time, which is the least of what it says.
                 if isSelected then
                     Marquee.draw("albumRowTitle", Typography.large, collection.title,
                         ALBUM_TEXT_LEFT, textTop, textWidth, titleHeight)
+                    Marquee.draw("albumRowDetail", Typography.body, collection.detail,
+                        ALBUM_TEXT_LEFT, detailTop, textWidth,
+                        ALBUM_ROW_HEIGHT - titleHeight)
                 else
                     graphics.setFont(Typography.large)
                     graphics.drawText(
                         Typography.truncateToWidth(
                             Typography.large, collection.title, textWidth),
                         ALBUM_TEXT_LEFT, textTop)
-                end
 
-                graphics.setFont(Typography.body)
-                graphics.drawText(
-                    Typography.truncateToWidth(
-                        Typography.body, collection.detail, textWidth),
-                    ALBUM_TEXT_LEFT, detailTop)
+                    graphics.setFont(Typography.body)
+                    graphics.drawText(
+                        Typography.truncateToWidth(
+                            Typography.body, collection.detail, textWidth),
+                        ALBUM_TEXT_LEFT, detailTop)
+                end
             end)
     end
 
@@ -476,12 +471,8 @@ local function drawTrackList()
         and openedCollection.detail
         or (openedCollection.coverAlbum and openedCollection.coverAlbum.artist or "")
 
-    -- Truncated rather than slid, so the header has one moving line rather than
-    -- two out of step with each other, the same as a row.
-    graphics.setFont(Typography.body)
-    graphics.drawText(
-        Typography.truncateToWidth(Typography.body, subheading, headerWidth),
-        LIST_LEFT_EDGE, 28)
+    Marquee.draw("trackHeaderSubheading", Typography.body, subheading,
+        LIST_LEFT_EDGE, 28, headerWidth, Typography.body:getHeight())
 
     local titleWidth = CONTENT_RIGHT_EDGE - TRACK_DURATION_COLUMN_WIDTH - TRACK_TITLE_LEFT
 

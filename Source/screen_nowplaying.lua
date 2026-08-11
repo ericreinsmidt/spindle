@@ -395,26 +395,20 @@ function ScreenNowPlaying.draw()
     -- where a title sits still long enough to be worth reading in full.
     local columnWidth = TEXT_RIGHT - TEXT_LEFT
 
-    -- The title slides and the two lines under it do not, so this block has one
-    -- thing moving in it rather than three. Lines of different lengths run at the
-    -- same speed have different cycles, so they would pause and start again at
-    -- different moments, and several of them going out of step in one block
-    -- reads as a stutter even though none of them is stuttering.
     Marquee.draw("nowPlayingTitle", Typography.large, track.title,
         TEXT_LEFT, TITLE_Y, columnWidth, TITLE_BAND_HEIGHT)
 
-    graphics.setFont(Typography.body)
-    graphics.drawText(
-        Typography.truncateToWidth(Typography.body, album.artist or "", columnWidth),
-        TEXT_LEFT, ARTIST_Y)
+    Marquee.draw("nowPlayingArtist", Typography.body, album.artist or "",
+        TEXT_LEFT, ARTIST_Y, columnWidth, LINE_BAND_HEIGHT)
 
     local albumLine = album.title or ""
     if album.year then
         albumLine = albumLine .. "  " .. album.year
     end
-    graphics.drawText(
-        Typography.truncateToWidth(Typography.body, albumLine, columnWidth),
-        TEXT_LEFT, ALBUM_Y)
+    Marquee.draw("nowPlayingAlbum", Typography.body, albumLine,
+        TEXT_LEFT, ALBUM_Y, columnWidth, LINE_BAND_HEIGHT)
+
+    graphics.setFont(Typography.body)
 
     graphics.drawText(
         string.format("track %d of %d", entry.trackIndex or 1, #album.tracks),

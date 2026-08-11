@@ -34,20 +34,28 @@ local graphics <const> = playdate.graphics
 local slots = {}
 
 -- How long it holds still at the start of each pass.
-local PAUSE_FRAMES <const> = 30
+local PAUSE_MILLISECONDS <const> = 1000
 
--- How far it moves each frame, in whole pixels.
+-- How fast it slides, measured against the clock rather than against frames.
 --
--- Whole pixels is the point of this number, not a detail of it. The screen can
--- only draw text on a pixel, so a speed that is not a whole number of pixels a
--- frame gets rounded on the way out and the text moves in an uneven stutter. The
--- first version of this was 45 pixels a second, which at 30 frames a second is
--- 1.5 a frame, and it landed as one pixel, two pixels, one, two, forever. That
--- read as a hitch because it was one.
+-- This was pixels per frame, which is the obvious way to write it and is wrong
+-- on this device. A fixed step per frame is only a fixed speed if the frames are
+-- evenly spaced, and on hardware the album list runs at about 19 frames a second
+-- with each frame taking anywhere from 48 to 55 milliseconds. Measured with the
+-- marquee alternating on and off, the median frame was 53 milliseconds either
+-- way, so the list has always been that slow and nothing on it moved before to
+-- show it.
 --
--- So the speed is written as pixels a frame and has to stay an integer. Two is
--- 60 a second, which crosses a long album title in about eight seconds.
-local SLIDE_PIXELS_PER_FRAME <const> = 2
+-- Driving from the clock means the text covers the same ground per second
+-- whatever the frame rate does. The position still lands on a whole pixel, so it
+-- is not perfectly smooth, but the error is under half a pixel rather than the
+-- fourteen percent swing in speed that came of trusting the frame counter.
+local SLIDE_PIXELS_PER_MILLISECOND <const> = 60 / 1000
+
+-- A gap this long between frames means something interrupted us: a screen
+-- change, the system menu, a stall. Time that passed while nobody was looking is
+-- not time the text should have been moving.
+local LONGEST_CREDIBLE_FRAME_MILLISECONDS <const> = 250
 
 -- The blank between the end of one pass and the start of the next.
 local GAP_PIXELS <const> = 44
@@ -56,7 +64,7 @@ local GAP_PIXELS <const> = 44
 local function slotFor(key, text)
     local slot = slots[key]
     if not slot or slot.text ~= text then
-        slot = { text = text, offset = 0, waited = 0, sliding = false }
+        slot = { text = text, travelled = 0, waited = 0, sliding = false, lastAt = nil }
         slots[key] = slot
     end
     return slot
@@ -72,18 +80,29 @@ end
 -- cycleWidth is the text plus the gap after it, so returning to zero puts the
 -- next pass exactly where the previous one started and the loop has no seam.
 local function advance(slot, cycleWidth)
+    local now = playdate.getCurrentTimeMilliseconds()
+    local sinceLastFrame = now - (slot.lastAt or now)
+    slot.lastAt = now
+
+    -- A gap far longer than a frame means this was not on screen for part of it.
+    -- Counting that time would make a title jump forward on return, as though it
+    -- had been scrolling to an empty room.
+    if sinceLastFrame > LONGEST_CREDIBLE_FRAME_MILLISECONDS then
+        sinceLastFrame = 0
+    end
+
     if not slot.sliding then
-        slot.waited = slot.waited + 1
-        if slot.waited >= PAUSE_FRAMES then
+        slot.waited = slot.waited + sinceLastFrame
+        if slot.waited >= PAUSE_MILLISECONDS then
             slot.waited = 0
             slot.sliding = true
         end
         return
     end
 
-    slot.offset = slot.offset + SLIDE_PIXELS_PER_FRAME
-    if slot.offset >= cycleWidth then
-        slot.offset = 0
+    slot.travelled = slot.travelled + sinceLastFrame * SLIDE_PIXELS_PER_MILLISECOND
+    if slot.travelled >= cycleWidth then
+        slot.travelled = 0
         slot.sliding = false
     end
 end
@@ -118,18 +137,24 @@ function Marquee.draw(key, font, text, left, top, width, height)
     local cycleWidth = textWidth + GAP_PIXELS
     advance(slot, cycleWidth)
 
+    -- Text can only be drawn on a pixel, so the position it has travelled to is
+    -- rounded here rather than being kept rounded. Rounding the running total
+    -- instead would throw away the fraction every frame and the text would creep
+    -- slower than it should.
+    local offset = math.floor(slot.travelled)
+
     -- Clipped rather than trusted to stop at the edge. The text is wider than the
     -- space by definition, so without this it would run over whatever sits beside
     -- it, which on the album list is the cover of the row below.
     graphics.setClipRect(left, top, width, height)
-    graphics.drawText(text, left - slot.offset, top)
+    graphics.drawText(text, left - offset, top)
 
     -- The second copy is what makes the loop seamless: once the first has slid
     -- far enough left to leave a hole on the right, the next pass is already
     -- coming into it. Only drawn when that hole exists, so a marquee costs one
     -- draw for most of its cycle rather than two for all of it.
-    if slot.offset > cycleWidth - width then
-        graphics.drawText(text, left - slot.offset + cycleWidth, top)
+    if offset > cycleWidth - width then
+        graphics.drawText(text, left - offset + cycleWidth, top)
     end
 
     graphics.clearClipRect()

@@ -73,6 +73,63 @@ local currentView = VIEW_ALBUMS
 local selectedAlbumIndex = 1
 local albumScrollOffset = 0
 
+-- Where the list is actually drawn, in pixels, as opposed to the row it is on
+-- its way to. The offsets above are the target and stay whole rows; these chase
+-- them and are the thing you see.
+local albumScrollPixels = 0
+local trackScrollPixels = 0
+
+-- How quickly a list catches up with where it is going.
+--
+-- This is a time constant, not a speed: each step closes the same fraction of
+-- whatever distance is left, so a short hop is quick and a long one still takes
+-- a moment. 90 milliseconds covers about two thirds of the distance, so a row
+-- lands in roughly a fifth of a second, which is fast enough to feel like a
+-- response rather than an animation.
+local SCROLL_EASE_MILLISECONDS <const> = 90
+
+-- Below this, stop and sit on the target. Without it the list creeps toward the
+-- row forever by ever smaller fractions of a pixel, which costs a redraw every
+-- frame for motion nobody can see.
+local SCROLL_SETTLED_PIXELS <const> = 0.4
+
+local lastEasedAt = nil
+local elapsedThisFrame = 0
+
+
+-- Read the clock once for the frame.
+--
+-- Kept separate from the easing itself so that the time advances whether or not
+-- anything is moving. Reading it inside the easing would leave it stale while a
+-- list sat still, and the first move after a pause would be handed several
+-- seconds of elapsed time.
+local function beginEasingFrame()
+    local now = playdate.getCurrentTimeMilliseconds()
+    elapsedThisFrame = now - (lastEasedAt or now)
+    lastEasedAt = now
+
+    -- A long gap is a screen change or a stall rather than a frame. Treating it
+    -- as elapsed time would snap the list across in one jump.
+    if elapsedThisFrame > 250 then
+        elapsedThisFrame = 0
+    end
+end
+
+
+-- Move a value toward a target by a fraction of the distance left.
+--
+-- Time based rather than per frame, for the reason the marquee had to be: this
+-- screen ran at 19 frames a second until recently, and a fixed step per frame is
+-- only a fixed speed if the frames are evenly spaced.
+local function easeTowards(current, target)
+    if math.abs(target - current) < SCROLL_SETTLED_PIXELS then
+        return target
+    end
+
+    local closed = 1 - math.exp(-elapsedThisFrame / SCROLL_EASE_MILLISECONDS)
+    return current + (target - current) * closed
+end
+
 -- What is open in the track view, as a table holding the rows to draw and the
 -- playback list they produce. An album and a playlist both reduce to that, which
 -- is what lets one track view serve both.
@@ -342,6 +399,13 @@ local function updateAlbumList()
 
         selectedTrackIndex = 1
         trackScrollOffset = 0
+
+        -- Snapped rather than eased. Opening a record is a change of place, not
+        -- a movement within one, and a track list that slid into position from
+        -- wherever the last one happened to be would read as the wrong thing
+        -- arriving rather than the right thing appearing.
+        trackScrollPixels = 0
+
         currentView = VIEW_TRACKS
     end
 
@@ -379,14 +443,34 @@ local function drawAlbumList()
     local detailHeight = Typography.body:getHeight()
     local textBlockHeight = titleHeight + ALBUM_TITLE_TO_DETAIL_GAP + detailHeight
 
-    for visibleRow = 1, visibleRowCount do
-        local collectionIndex = albumScrollOffset + visibleRow
+    -- Where the list has slid to, as opposed to the row it is heading for.
+    beginEasingFrame()
+    albumScrollPixels = easeTowards(albumScrollPixels,
+        albumScrollOffset * ALBUM_ROW_HEIGHT)
+
+    -- The row at the top of the screen and how far it has been pushed up out of
+    -- view. While the list is moving these are a row and a part of one, which is
+    -- the whole point: a list that only ever showed whole rows could not slide.
+    local firstVisibleIndex = math.floor(albumScrollPixels / ALBUM_ROW_HEIGHT)
+    local pixelsScrolledIntoFirstRow =
+        albumScrollPixels - firstVisibleIndex * ALBUM_ROW_HEIGHT
+
+    -- Clipped to the area below the heading, so the row sliding in at the bottom
+    -- stops at the edge of the screen and the one sliding out at the top does
+    -- not draw over the heading.
+    graphics.setClipRect(0, ALBUM_LIST_TOP_EDGE, 400, SCREEN_HEIGHT - ALBUM_LIST_TOP_EDGE)
+
+    -- One row more than fits, since while it is moving there is a partial row at
+    -- each end rather than a whole number of them.
+    for visibleRow = 1, visibleRowCount + 1 do
+        local collectionIndex = firstVisibleIndex + visibleRow
         local collection = collections[collectionIndex]
         if not collection then
             break
         end
 
         local bandTop = ALBUM_LIST_TOP_EDGE + (visibleRow - 1) * ALBUM_ROW_HEIGHT
+            - pixelsScrolledIntoFirstRow
 
         drawRow(bandTop, ALBUM_ROW_HEIGHT, collectionIndex == selectedAlbumIndex,
             function(isSelected)
@@ -451,7 +535,12 @@ local function drawAlbumList()
             end)
     end
 
-    drawScrollIndicator(#collections, visibleRowCount, albumScrollOffset, ALBUM_LIST_TOP_EDGE)
+    graphics.clearClipRect()
+
+    -- The thumb tracks where the list has slid to rather than the row it is
+    -- heading for, so it moves with the list instead of jumping ahead of it.
+    drawScrollIndicator(#collections, visibleRowCount,
+        albumScrollPixels / ALBUM_ROW_HEIGHT, ALBUM_LIST_TOP_EDGE)
 end
 
 
@@ -522,8 +611,21 @@ local function drawTrackList()
 
     local titleWidth = CONTENT_RIGHT_EDGE - TRACK_DURATION_COLUMN_WIDTH - TRACK_TITLE_LEFT
 
-    for visibleRow = 1, visibleRowCount do
-        local trackIndex = trackScrollOffset + visibleRow
+    beginEasingFrame()
+    trackScrollPixels = easeTowards(trackScrollPixels,
+        trackScrollOffset * TRACK_ROW_HEIGHT)
+
+    local firstVisibleIndex = math.floor(trackScrollPixels / TRACK_ROW_HEIGHT)
+    local pixelsScrolledIntoFirstRow =
+        trackScrollPixels - firstVisibleIndex * TRACK_ROW_HEIGHT
+
+    -- Clipped below the two heading lines, so a row sliding out of the top does
+    -- not draw across them.
+    graphics.setClipRect(0, TRACK_LIST_TOP_EDGE, 400, SCREEN_HEIGHT - TRACK_LIST_TOP_EDGE)
+
+    -- One row more than fits, for the partial one at each end while it moves.
+    for visibleRow = 1, visibleRowCount + 1 do
+        local trackIndex = firstVisibleIndex + visibleRow
         local entry = openedCollection.entries[trackIndex]
         if not entry then
             break
@@ -531,7 +633,12 @@ local function drawTrackList()
         local track = entry.track
 
         local bandTop = TRACK_LIST_TOP_EDGE + (visibleRow - 1) * TRACK_ROW_HEIGHT
-        if bandTop + TRACK_ROW_HEIGHT > SCREEN_HEIGHT then
+            - pixelsScrolledIntoFirstRow
+
+        -- The row that has slid past the bottom edge is skipped rather than
+        -- drawn and clipped away, since the clip costs nothing to check and the
+        -- drawing does not.
+        if bandTop >= SCREEN_HEIGHT then
             break
         end
 
@@ -570,7 +677,10 @@ local function drawTrackList()
         end)
     end
 
-    drawScrollIndicator(trackCount, visibleRowCount, trackScrollOffset, TRACK_LIST_TOP_EDGE)
+    graphics.clearClipRect()
+
+    drawScrollIndicator(trackCount, visibleRowCount,
+        trackScrollPixels / TRACK_ROW_HEIGHT, TRACK_LIST_TOP_EDGE)
 end
 
 
@@ -585,6 +695,13 @@ function ScreenLibrary.enter()
     -- reappear part way along, which reads as the list having been running
     -- while nobody was looking at it.
     Marquee.reset()
+
+    -- Arrive at rest. Easing from wherever the list was left would animate on
+    -- the way in, and the movement is meant to show a list responding to you
+    -- rather than a screen assembling itself.
+    albumScrollPixels = albumScrollOffset * ALBUM_ROW_HEIGHT
+    trackScrollPixels = trackScrollOffset * TRACK_ROW_HEIGHT
+    lastEasedAt = nil
 end
 
 

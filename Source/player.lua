@@ -42,10 +42,22 @@ local PREWARM_LEAD_IN_SECONDS <const> = 10
 -- slowest, just after an install or a cold start, and that is exactly the case
 -- a sweep run on a warm device does not reproduce.
 --
--- The cost is on the other side of the trade. Filling a one second buffer took
--- 390 milliseconds against 85 at a quarter second. That is spent warming the
--- next track, which happens ten seconds before it is needed, so there is a
--- twenty five fold margin on it.
+-- The cost is on the other side of the trade, and it is smaller than it was
+-- once written down here.
+--
+-- This used to say that filling a one second buffer took 390 milliseconds
+-- against 85 at a quarter second. Measured again on the device during ordinary
+-- playback, the warm blocks 42 to 43 milliseconds. Where 390 came from is not
+-- clear; it may have been timed from a cold start or with the file open counted
+-- in. It is left recorded rather than deleted because it is wrong in the
+-- direction that matters: it makes the warm look like a hazard worth designing
+-- around, and an hour went into chasing a stall that does not happen.
+--
+-- Measured across 45,900 frames of real use, covering full track boundaries, the
+-- visualizers, and browsing with music playing: no underruns at all, and the two
+-- warms in that run cost 43 and 42 milliseconds. The one second buffer absorbed
+-- the two longest frames in the run, 155 and 138 milliseconds, without a break in
+-- the audio, which is the whole reason it is a second rather than a quarter.
 local PLAYBACK_BUFFER_IN_SECONDS <const> = 1.0
 
 -- Crank scrubbing accumulates and commits on this interval rather than every

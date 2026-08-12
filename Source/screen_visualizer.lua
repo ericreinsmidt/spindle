@@ -32,8 +32,8 @@ Visualizers.setOrder({
     "Maigasa",
     "Koi",
     "Slime",
-    "Spirograph",
-    "Triforce",
+    "Spiro",
+    "Hojo",
     "Haring",
     "Spectrum",
 })

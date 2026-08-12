@@ -23,8 +23,18 @@ local graphics <const> = playdate.graphics
 -- image is blitted upward by one row and only the new row is drawn. That turns
 -- an expensive full redraw into two image copies.
 --
--- Shown as Triforce, because rule 90 draws a Sierpinski triangle and that is
--- what most people have actually seen one in.
+-- Shown as Hojo, for the clan who ruled Japan as regents from 1203 to 1333.
+-- Their crest was the mitsu-uroko, three scales: three triangles arranged in
+-- a triangle, which is exactly what rule 90 draws.
+--
+-- It was called Triforce, which is the same shape borrowed from somewhere
+-- with an owner. Nobody owns the shape. The mon predates Nintendo by six
+-- centuries and a Sierpinski gasket falls out of arithmetic rather than out
+-- of anyone's artwork. But they do own the word, and Hojo is both free and
+-- the older name for the thing on screen.
+--
+-- Written without the macrons that belong on Hojo, because the font is
+-- Panic's Roobert and there is no reason to think it carries them.
 
 -- The crank is a rule dial.
 --
@@ -64,7 +74,7 @@ local DIAL_RULES <const> = { 90, 60, 22, 126, 94, 150, 54, 110, 30 }
 local CRANK_DEGREES_PER_RULE <const> = 90
 
 local CellularAutomaton = {
-    name = "Triforce",
+    name = "Hojo",
 
     -- Eight rather than four, because rule 90 draws a Sierpinski triangle and at
     -- four pixels the triangles were too fine to read as triangles.

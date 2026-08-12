@@ -444,7 +444,11 @@ Visualizers.register(ChladniFigures)
 -- figures, and the loss of energy is what spirals the figure inward toward the
 -- center as it is drawn.
 --
--- Shown as Spirograph, which is the toy version of the same idea.
+-- Shown as Spiro, for the toy that draws the same kind of figure.
+--
+-- The toy's full name is Hasbro's. Spiro on its own is the Greek root under
+-- spiral and spirometer, so it is the ancestor of the trademark rather than
+-- a clipping of it.
 
 -- This one only moves when you turn the crank.
 --
@@ -589,7 +593,7 @@ local STARTING_AMPLITUDE <const> = 160
 local VERTICAL_SQUASH <const> = 0.70
 
 local Harmonograph = {
-    name = "Spirograph",
+    name = "Spiro",
 }
 
 

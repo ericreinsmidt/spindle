@@ -25,7 +25,7 @@ with the crank as a control you reach for rather than a novelty.
 
 <div align="center">
 
-[spindle.webm](https://github.com/user-attachments/assets/34f8fcf1-5366-4732-bd1c-6656cdf400b6)
+https://github.com/user-attachments/assets/661ae5b2-917e-4332-b53c-d2d9c4f08cf7
 
 </div>
 

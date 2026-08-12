@@ -25,7 +25,7 @@ with the crank as a control you reach for rather than a novelty.
 
 <div align="center">
 
-https://github.com/user-attachments/assets/6c3f8358-c32e-440f-9df6-60babb959f1f
+https://github.com/user-attachments/assets/fb380576-623e-4df6-920f-6f4266d2b2a4
 
 </div>
 
